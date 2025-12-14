@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>徒步環島紀錄 v6.1</title>
+    <title>徒步環島紀錄 v6.2</title>
     
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
@@ -55,6 +55,16 @@
         <div id="total-stats" class="text-xs font-bold font-num text-brand-earth bg-brand-light px-3 py-1 rounded-full border border-brand-earth/20">Loading...</div>
     </header>
 
+    <!-- Error / Loading Screen -->
+    <div id="error-screen" class="hidden fixed inset-0 z-[100] bg-white flex flex-col items-center justify-center p-10 text-center">
+        <i class="fa-solid fa-triangle-exclamation text-5xl text-red-500 mb-4"></i>
+        <h2 class="text-xl font-bold mb-2">發生錯誤</h2>
+        <p id="error-msg" class="text-sm text-gray-500 mb-6 break-all">Unknown Error</p>
+        <button onclick="localStorage.clear(); location.reload();" class="bg-red-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg">
+            清除資料並重置 (Reset App)
+        </button>
+    </div>
+
     <!-- Main -->
     <main id="app-container" class="flex-1 overflow-y-auto no-scrollbar p-5 pb-24 scroll-smooth relative"></main>
 
@@ -68,7 +78,7 @@
     </nav>
 
     <!-- Generic Modal -->
-    <div id="modal" class="fixed inset-0 bg-black bg-opacity-60 hidden z-[70] flex items-center justify-center p-4 backdrop-blur-sm hidden">
+    <div id="modal" class="fixed inset-0 bg-black bg-opacity-60 hidden z-[70] flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-white w-full max-w-md rounded-2xl p-5 shadow-2xl max-h-[90vh] flex flex-col">
             <div class="flex justify-between items-center mb-4 flex-none border-b pb-3">
                 <h3 id="modal-title" class="text-lg font-bold text-brand-dark">標題</h3>
@@ -79,10 +89,10 @@
     </div>
 
     <!-- Import Modal -->
-    <div id="import-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden z-[80] flex items-center justify-center p-4 backdrop-blur-sm hidden">
+    <div id="import-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-white w-full max-w-md rounded-2xl p-5 shadow-2xl max-h-[80vh] flex flex-col">
             <div class="flex justify-between items-center mb-4 flex-none border-b pb-3">
-                <h3 class="text-lg font-bold text-brand-dark">匯入規劃</h3>
+                <h3 class="text-lg font-bold text-brand-dark">選擇規劃路線匯入</h3>
                 <button onclick="App.closeImportModal()" class="text-gray-400 px-2"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div id="import-list" class="flex-1 overflow-y-auto space-y-3"></div>
@@ -90,10 +100,10 @@
     </div>
 
     <!-- Map Modal -->
-    <div id="map-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden z-[90] flex items-center justify-center p-4 backdrop-blur-sm hidden">
+    <div id="map-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden z-[90] flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl h-[95vh] flex flex-col overflow-hidden">
             <div class="p-4 border-b bg-gray-50 flex justify-between items-center flex-none">
-                <h3 class="font-bold text-brand-dark text-sm flex items-center gap-2"><i class="fa-solid fa-person-walking"></i> 測距 (OSM)</h3>
+                <h3 class="font-bold text-brand-dark text-sm flex items-center gap-2"><i class="fa-solid fa-person-walking text-brand-dark"></i> 測距 (OSM)</h3>
                 <button onclick="App.closeMapModal()" class="text-gray-400"><i class="fa-solid fa-xmark text-xl"></i></button>
             </div>
             <div class="p-3 bg-white flex-none max-h-[30vh] overflow-y-auto border-b">
@@ -117,10 +127,10 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
-        // --- Debug Error Handler ---
-        window.onerror = function(msg, url, line) {
-            alert("App Error: " + msg + "\nLine: " + line);
-            document.getElementById('total-stats').innerText = "系統錯誤";
+        // --- Global Error Handling ---
+        window.onerror = function(message, source, lineno, colno, error) {
+            document.getElementById('error-screen').classList.remove('hidden');
+            document.getElementById('error-msg').innerText = message + " (Line: " + lineno + ")";
         };
 
         const Utils = {
@@ -274,7 +284,7 @@
                     if(this.data.gears.length === 0) this.seedGearData();
                     window.App = this; window.MapPicker = MapPicker;
                 } catch(e) {
-                    alert("Init Error: " + e.message);
+                    throw new Error("Init Failed: " + e.message);
                 }
             },
             
@@ -284,20 +294,16 @@
                     if (stored) {
                         this.data = JSON.parse(stored);
                     } else if (localStorage.getItem('island_walker_v5_db')) { 
-                        // Migration v5 -> v6
                         const v5 = JSON.parse(localStorage.getItem('island_walker_v5_db'));
                         this.data = { ...v5, targetKm: 1200 };
                         this.saveData();
                     } else if (localStorage.getItem('island_walker_v4_db')) {
-                        // Migration v4 -> v6
                         const v4 = JSON.parse(localStorage.getItem('island_walker_v4_db'));
                         this.data = { ...v4, targetKm: 1200 };
                         this.saveData();
                     }
                 } catch(e) {
                     console.error("Data load error", e);
-                    // Reset if corrupted to prevent infinite crash loop, or just alert
-                    // alert("資料讀取錯誤，可能已損毀");
                 }
             },
             
@@ -316,9 +322,9 @@
             
             getDayNumber(dateStr) { 
                 if (!this.firstDate) return 1; 
-                const start = Utils.getMidnight(this.firstDate);
-                const current = Utils.getMidnight(dateStr);
-                const diffTime = current - start;
+                const start = Utils.getMidnight(this.firstDate); 
+                const current = Utils.getMidnight(dateStr); 
+                const diffTime = current - start; 
                 return Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1; 
             },
             
@@ -349,8 +355,7 @@
                 this.updateGlobalStats();
             },
 
-            // --- Views ---
-            
+            // --- Stats View ---
             renderStatsView(container) {
                 const totalKm = this.data.logs.reduce((acc, c) => acc + Number(c.km||0), 0);
                 const progress = Math.min((totalKm / this.data.targetKm) * 100, 100).toFixed(1);
@@ -377,161 +382,4 @@
                             <h3 class="font-bold text-brand-dark mb-4 border-b pb-2">花費分析 ($${totalCost})</h3>
                             <div class="h-48 relative"><canvas id="expenseChart"></canvas></div>
                         </div>
-                        <div class="flex justify-between items-center mt-6 mb-2"><h3 class="font-bold text-gray-500">健康狀態紀錄</h3><button onclick="App.openHealthModal()" class="text-xs bg-brand-dark text-white px-3 py-1.5 rounded-full shadow"><i class="fa-solid fa-plus"></i> 新增狀態</button></div>
-                        <div id="health-list" class="space-y-3 pb-10"></div>
-                    </div>
-                `;
-                
-                setTimeout(() => { 
-                    const ctx = document.getElementById('expenseChart'); 
-                    if(ctx) { 
-                        new Chart(ctx, { type: 'doughnut', data: { labels: ['住宿', '飲食/雜支'], datasets: [{ data: [stayTotal, foodTotal], backgroundColor: ['#2C5E50', '#E76F51'], borderWidth: 0 }] }, options: { maintainAspectRatio: false, plugins: { legend: { position: 'right' } } } }); 
-                    } 
-                }, 100);
-                
-                const healthContainer = document.getElementById('health-list'); 
-                if (this.data.health.length === 0) healthContainer.innerHTML = `<div class="text-center text-gray-300 py-4">無健康紀錄</div>`; 
-                else { 
-                    this.data.health.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(h => { 
-                        healthContainer.innerHTML += `<div class="card p-3 border-l-4 ${h.condition==='good'?'border-green-500':h.condition==='bad'?'border-red-500':'border-gray-400'}"><div class="flex justify-between text-xs mb-1"><span class="font-bold text-gray-600">${Utils.formatDate(h.date)}</span><span class="${h.condition==='good'?'text-green-600':'text-red-500'} font-bold">${h.condition==='good'?'良好':h.condition==='bad'?'需休息':'普通'}</span></div><div class="text-sm">睡眠 ${h.sleep}h ${h.pain?`• 痛: ${h.pain}`:''}</div>${h.note?`<div class="text-xs text-gray-500 mt-1 bg-gray-50 p-1 rounded">${h.note}</div>`:''}</div>`; 
-                    }); 
-                }
-            },
-            
-            editTarget() { 
-                const newT = prompt('設定目標公里數', this.data.targetKm); 
-                if(newT && !isNaN(newT)) { this.data.targetKm = Number(newT); this.saveData(); this.router('stats'); } 
-            },
-
-            renderLogView(container) {
-                let html = ''; 
-                if (this.data.logs.length === 0) html += `<div class="flex flex-col items-center justify-center h-[60vh] text-gray-300"><i class="fa-solid fa-person-hiking text-6xl mb-4"></i><p>開始紀錄你的第一天</p></div>`; 
-                else { 
-                    const sortedLogs = [...this.data.logs].sort((a,b) => new Date(b.date) - new Date(a.date)); 
-                    sortedLogs.forEach(log => { 
-                        const dayNum = this.getDayNumber(log.date); 
-                        const stayCost = this.getStayCostByDate(log.date); 
-                        const expenses = log.expenses || []; 
-                        const totalCost = expenses.reduce((acc, curr) => acc + Number(curr.price), 0) + stayCost; 
-                        let exHtml = ''; 
-                        if(expenses.length > 0 || stayCost > 0) { 
-                            exHtml = `<div class="mt-2 pt-2 border-t border-gray-100 text-xs text-gray-500 space-y-1">`; 
-                            expenses.forEach(e => exHtml += `<div class="flex justify-between"><span>${e.name}</span><span>$${e.price}</span></div>`); 
-                            if(stayCost > 0) exHtml += `<div class="flex justify-between text-blue-600"><span>住宿費</span><span>$${stayCost}</span></div>`; 
-                            exHtml += `</div>`; 
-                        } 
-                        html += `<div class="card p-5 mb-5 border-l-[6px] border-brand-dark"><div class="flex justify-between items-start mb-3"><div><div class="text-xs font-bold font-num text-white bg-brand-earth px-2 py-1 rounded inline-block mb-1">Day ${dayNum}</div><div class="text-xs text-gray-400 font-num">${Utils.formatDate(log.date)}</div></div><button onclick="App.openLogModal(${log.id})" class="text-gray-300 p-2"><i class="fa-solid fa-pen-to-square"></i></button></div><h3 class="text-xl font-bold text-brand-dark mb-1 flex items-center">${log.start} <i class="fa-solid fa-arrow-right-long text-sm mx-2 text-gray-300"></i> ${log.end}</h3><div class="grid grid-cols-2 gap-3 my-3"><div class="bg-gray-50 p-2 rounded-lg"><div class="text-xs text-gray-400">里程</div><div class="font-bold text-brand-dark font-num text-lg">${log.km} <span class="text-xs">km</span></div></div><div class="bg-gray-50 p-2 rounded-lg"><div class="text-xs text-gray-400">總花費</div><div class="font-bold text-brand-accent font-num text-lg">$${totalCost}</div></div></div>${exHtml}<div class="text-sm text-gray-600 leading-relaxed whitespace-pre-line mt-3">${log.note || ''}</div></div>`; 
-                    }); 
-                } 
-                container.innerHTML = html; 
-                this.addFab(container, 'fa-plus', () => this.openLogModal()); 
-            },
-
-            renderRouteView(container) {
-                let html = `<a href="https://www.google.com/maps" target="_blank" class="flex items-center justify-center bg-white text-brand-dark py-3 rounded-xl mb-6 shadow-sm border border-gray-100 font-bold"><i class="fa-brands fa-google text-lg mr-2 text-red-500"></i> 開啟 Google Maps</a>`;
-                if (this.data.routes.length === 0) html += `<div class="text-center text-gray-400 mt-10">尚未規劃路線</div>`;
-                else {
-                    html += '<div class="relative border-l-2 border-brand-earth/30 ml-4 pl-6 py-2 space-y-6">';
-                    this.data.routes.sort((a,b) => new Date(a.date) - new Date(b.date)).forEach(route => {
-                        const isToday = route.date === new Date().toISOString().split('T')[0];
-                        let navLink = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(route.start)}&destination=${encodeURIComponent(route.end)}&travelmode=walking`;
-                        if (route.coords && route.coords.waypoints && route.coords.waypoints.length > 0) {
-                             const waypoints = route.coords.waypoints.map(w => `${w.lat},${w.lng}`).join('|');
-                             navLink = `https://www.google.com/maps/dir/?api=1&origin=${route.coords.start.lat},${route.coords.start.lng}&destination=${route.coords.end.lat},${route.coords.end.lng}&waypoints=${waypoints}&travelmode=walking`;
-                        } else if (route.coords && route.coords.start) {
-                             navLink = `https://www.google.com/maps/dir/?api=1&origin=${route.coords.start.lat},${route.coords.start.lng}&destination=${route.coords.end.lat},${route.coords.end.lng}&travelmode=walking`;
-                        }
-                        html += `<div class="relative group"><div class="absolute -left-[33px] top-4 w-4 h-4 rounded-full bg-brand-dark ${isToday ? 'ring-4 ring-brand-accent/30 bg-brand-accent' : ''}"></div><div class="card p-4 ${isToday ? 'border-2 border-brand-accent' : ''}"><div class="flex justify-between items-start mb-2"><div><span class="text-xs font-bold text-brand-earth font-num mb-1">Day ${route.dayNum}</span> <span class="text-xs text-gray-400 font-num">${Utils.formatDate(route.date)}</span></div><button onclick="App.openRouteModal(${route.id})" class="text-gray-300 px-2"><i class="fa-solid fa-pen"></i></button></div><h4 class="font-bold text-lg text-brand-dark mb-1">${route.start} → ${route.end}</h4><div class="text-sm text-gray-600 mb-3 font-num font-medium">預估：${route.estKm} km</div><div class="flex gap-2 mt-3"><a href="${navLink}" target="_blank" class="flex-1 bg-brand-dark text-white py-2 rounded-lg text-xs font-bold text-center flex items-center justify-center"><i class="fa-solid fa-location-arrow mr-1"></i> 導航</a>${route.note ? `<button onclick="alert('${route.note}')" class="px-3 bg-gray-100 rounded-lg text-gray-600"><i class="fa-solid fa-message"></i></button>` : ''}</div></div></div>`;
-                    });
-                    html += '</div>';
-                }
-                container.innerHTML = html;
-                this.addFab(container, 'fa-map-pin', () => this.openRouteModal());
-            },
-
-            renderStayView(container) {
-                let html = '';
-                if (this.data.stays.length === 0) html += `<div class="text-center text-gray-400 mt-20">尚未紀錄住宿</div>`;
-                else {
-                    this.data.stays.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(stay => {
-                        html += `<div class="card p-5 mb-4"><div class="flex justify-between items-start"><span class="text-xs font-bold text-gray-400 font-num">${Utils.formatDate(stay.date)}</span><button onclick="App.openStayModal(${stay.id})" class="text-gray-300 px-2"><i class="fa-solid fa-pen"></i></button></div><div class="flex justify-between items-center mt-1"><h3 class="text-xl font-bold text-brand-dark">${stay.name}</h3><span class="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600">${stay.type}</span></div><div class="text-brand-accent font-bold my-2 font-num text-lg">$${stay.price}</div>${stay.contact ? `<div class="text-sm text-gray-600 mb-1"><i class="fa-solid fa-phone w-5"></i> <a href="tel:${stay.contact}" class="underline">${stay.contact}</a></div>` : ''}${stay.mapLink ? `<a href="${stay.mapLink}" target="_blank" class="mt-2 block text-center bg-brand-light py-2 rounded-lg text-sm font-bold text-brand-dark hover:bg-green-100"><i class="fa-solid fa-map-location-dot"></i> 開啟地圖</a>` : ''}</div>`;
-                    });
-                }
-                container.innerHTML = html;
-                this.addFab(container, 'fa-bed', () => this.openStayModal());
-            },
-
-            renderGearView(container) {
-                container.innerHTML = `<div class="flex space-x-2 mb-4 sticky top-0 bg-brand-bg z-10 py-2"><button onclick="App.filterGear('all')" class="flex-1 py-2 bg-white rounded-lg shadow-sm text-xs font-bold border border-gray-100">全部</button><button onclick="App.filterGear('clothing')" class="flex-1 py-2 bg-white rounded-lg shadow-sm text-xs font-bold border border-gray-100">衣物</button><button onclick="App.filterGear('elec')" class="flex-1 py-2 bg-white rounded-lg shadow-sm text-xs font-bold border border-gray-100">電子</button><button onclick="App.filterGear('med')" class="flex-1 py-2 bg-white rounded-lg shadow-sm text-xs font-bold border border-gray-100">醫藥</button></div><div class="flex justify-between items-center mb-2 px-1"><h3 class="font-bold text-brand-dark">裝備清單</h3><button onclick="App.openGearAdd()" class="text-sm text-brand-accent font-bold"><i class="fa-solid fa-plus"></i> 新增</button></div><div id="gear-list" class="space-y-3 pb-20"></div>`;
-                this.filterGear('all');
-            },
-
-            // --- Helpers ---
-            
-            getStayCostByDate(date) { const stay = this.data.stays.find(s => s.date === date); return stay ? Number(stay.price || 0) : 0; },
-            
-            addFab(c,i,cb) { const b=document.createElement('div'); b.className='fab'; b.innerHTML=`<i class="fa-solid ${i}"></i>`; b.onclick=cb; c.appendChild(b); },
-            
-            showModal(t,h) { document.getElementById('modal-title').innerText=t; document.getElementById('modal-content').innerHTML=h; document.getElementById('modal').classList.remove('hidden'); },
-            closeModal() { document.getElementById('modal').classList.add('hidden'); },
-            closeMapModal() { document.getElementById('map-modal').classList.add('hidden'); },
-            closeImportModal() { document.getElementById('import-modal').classList.add('hidden'); },
-
-            // --- Actions ---
-
-            openLogModal(editId = null) {
-                const isEdit = editId !== null;
-                let data = { expenses: [] };
-                if(isEdit) data = this.data.logs.find(l => l.id === editId);
-                if(data.otherCost && (!data.expenses || data.expenses.length === 0)) data.expenses = [{name: '雜支', price: data.otherCost}];
-                const stayCost = isEdit ? this.getStayCostByDate(data.date) : 0;
-                
-                const formHtml = `
-                    <div class="space-y-4">
-                        <input type="date" id="log-date" class="input-field font-num" value="${data.date || new Date().toISOString().split('T')[0]}">
-                        ${!isEdit ? `<button onclick="App.openImportRouteModal()" class="w-full bg-brand-light text-brand-dark py-2 rounded-lg border border-brand-dark border-dashed font-bold text-sm"><i class="fa-solid fa-folder-open mr-1"></i> 從規劃中匯入</button>` : ''}
-                        <div class="grid grid-cols-2 gap-3"><input type="text" id="log-start" class="input-field" placeholder="起點" value="${data.start || ''}"><input type="text" id="log-end" class="input-field" placeholder="終點" value="${data.end || ''}"></div>
-                        <div class="relative"><input type="number" id="log-km" class="input-field pr-24 font-num" placeholder="今日里程" inputmode="decimal" value="${data.km || ''}"><button onclick="MapPicker.open('log-km')" class="absolute right-2 top-2 text-white bg-brand-dark text-xs px-3 py-2 rounded-lg font-bold shadow-sm flex items-center gap-1"><i class="fa-solid fa-map"></i> 測距</button></div>
-                        <div class="bg-gray-50 p-3 rounded-xl border border-gray-100"><div class="flex justify-between items-center mb-2"><label class="text-xs font-bold text-gray-500">當日開銷 (不含住宿)</label><button onclick="App.addExpenseRow()" class="text-xs bg-brand-dark text-white px-2 py-1 rounded">新增</button></div><div id="expense-container" class="space-y-2"></div>${stayCost > 0 ? `<div class="text-xs text-blue-600 mt-2 text-right">住宿費 $${stayCost} (自動帶入)</div>` : ''}</div>
-                        <div class="flex justify-between gap-2">${['good','normal','bad'].map(m => `<label class="flex-1 cursor-pointer"><input type="radio" name="log-mood" value="${m}" class="peer hidden" ${data.mood === m || (!data.mood && m==='good') ? 'checked' : ''}><div class="text-center py-2 border rounded-xl peer-checked:bg-brand-dark peer-checked:text-white transition text-xl">${m==='good'?'😄':m==='normal'?'😐':'😫'}</div></label>`).join('')}</div>
-                        <textarea id="log-note" class="input-field h-24" placeholder="心得...">${data.note || ''}</textarea>
-                        <button onclick="App.submitLog(${editId})" class="w-full bg-brand-dark text-white py-3 rounded-xl font-bold shadow-lg mt-2">${isEdit ? '更新' : '儲存'}</button>
-                        ${isEdit ? `<button onclick="App.deleteLog(${editId})" class="w-full text-red-400 text-sm mt-3">刪除</button>` : ''}
-                    </div>
-                `;
-                this.showModal(isEdit ? '編輯日記' : '新增日記', formHtml);
-                const exContainer = document.getElementById('expense-container');
-                if(data.expenses && data.expenses.length > 0) data.expenses.forEach(e => this.addExpenseRow(e.name, e.price));
-                else this.addExpenseRow();
-            },
-
-            openRouteModal(editId = null) {
-                const isEdit = editId !== null;
-                let data = {};
-                if(isEdit) data = this.data.routes.find(r => r.id === editId);
-                const formHtml = `
-                    <div class="space-y-4">
-                        <div class="flex gap-2"><input type="number" id="route-day" class="input-field w-1/3 font-num" placeholder="Day" value="${data.dayNum || ''}"><input type="date" id="route-date" class="input-field w-2/3 font-num" value="${data.date || ''}"></div>
-                        <div class="grid grid-cols-2 gap-3"><input type="text" id="route-start" class="input-field" placeholder="起點" value="${data.start || ''}"><input type="text" id="route-end" class="input-field" placeholder="終點" value="${data.end || ''}"></div>
-                        <div class="relative"><input type="number" id="route-km" class="input-field pr-24 font-num" placeholder="預估 km" value="${data.estKm || ''}"><button onclick="MapPicker.open('route-km')" class="absolute right-2 top-2 text-white bg-brand-dark text-xs px-3 py-2 rounded-lg font-bold shadow-sm flex items-center gap-1"><i class="fa-solid fa-map"></i> 測距</button></div>
-                        <input type="text" id="route-note" class="input-field" placeholder="備註" value="${data.note || ''}">
-                        <button onclick="App.submitRoute(${editId})" class="w-full bg-brand-dark text-white py-3 rounded-xl font-bold shadow-lg mt-2">${isEdit ? '更新' : '新增'}</button>
-                        ${isEdit ? `<button onclick="App.deleteRoute(${editId})" class="w-full text-red-400 text-sm mt-3">刪除</button>` : ''}
-                    </div>
-                `;
-                this.showModal(isEdit ? '編輯規劃' : '新增規劃', formHtml);
-            },
-
-            openStayModal(editId = null) {
-                const isEdit = editId !== null; let data = {}; if(isEdit) data = this.data.stays.find(s => s.id === editId);
-                const formHtml = `
-                    <div class="space-y-4">
-                        <input type="date" id="stay-date" class="input-field font-num" value="${data.date || ''}">
-                        <input type="text" id="stay-name" class="input-field" placeholder="住宿名稱 (貼上地圖連結無效)" value="${data.name || ''}">
-                        <div class="grid grid-cols-2 gap-3"><select id="stay-type" class="input-field">${['民宿','青旅','旅館','借宿','野宿'].map(t => `<option value="${t}" ${data.type===t?'selected':''}>${t}</option>`).join('')}</select><input type="number" id="stay-price" class="input-field font-num" placeholder="價格" inputmode="numeric" value="${data.price || ''}"></div>
-                        <input type="tel" id="stay-contact" class="input-field font-num" placeholder="電話" value="${data.contact || ''}">
-                        <div class="text-[10px] text-gray-500 bg-gray-50 p-2 rounded">備註：請貼上 Google Maps 分享連結 (長網址/短網址)，無法自動抓取資料，但可快速開啟。</div>
-                        <input type="text" id="stay-map" class="input-field" placeholder="Google Map 分享連結" value="${data.mapLink || ''}">
-                        <input type="text" id="stay-note" class="input-field" placeholder="備註 (插座、洗衣機...)" value="${data.note || ''}">
-                        <button onclick="App.submitStay(${editId})" class="w-full bg-brand-dark text-white py-3 rounded-xl font-bold shadow-lg mt-2">${isEdit ? '更新' : '儲存'}</button>
-                         ${isEdit ? `<button onclick="App.
+                        <div class="flex justify-between items-center mt-6 mb-2"><h3 class="font-bold text-gray-500">健康狀態紀錄</h

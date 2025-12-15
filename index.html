@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>徒步環島紀錄 v14</title>
+    <title>徒步環島紀錄 v15</title>
     
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
@@ -47,9 +47,9 @@
         .custom-pin { text-align: center; }
         .pin-number { background: #2C5E50; color: white; border-radius: 50%; width: 24px; height: 24px; font-size: 14px; line-height: 24px; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); font-weight: bold; }
         
-        /* Calendar Styles v14 */
+        /* Calendar Styles v15 */
         .cal-cell { 
-            min-height: 85px; /* Increased height for lines */
+            min-height: 80px; /* Ensure space for content */
             border-radius: 8px; 
             font-size: 12px; 
             position: relative; 
@@ -58,8 +58,9 @@
             border: 1px solid #f3f4f6; 
             display: flex; 
             flex-direction: column; 
-            padding: 4px;
+            padding: 2px;
             align-items: center;
+            overflow: hidden;
         }
         .cal-cell:active { transform: scale(0.98); background: #f3f4f6; }
         .cal-today { border: 2px solid #2C5E50; }
@@ -150,17 +151,8 @@
             formatDate(dateStr) { if(!dateStr) return ''; const d = new Date(dateStr); return `${dateStr} ${this.weekDays[d.getDay()]}`; },
             getMidnight(dateStr) { const d = new Date(dateStr); d.setHours(0,0,0,0); return d; },
             extractCityDistrict(addr) { if(!addr) return ''; const match = addr.match(/(\d{3,5})?(.+?[縣市].+?[市區鄉鎮])/); return match ? match[2] : addr; },
-            // Unified Header HTML
             renderCardHeader(dayNum, dateStr, btnHtml='') {
-                return `
-                    <div class="flex justify-between items-start mb-3">
-                        <div class="flex flex-col">
-                            <span class="text-xs font-bold text-brand-earth bg-gray-100 px-2 py-0.5 rounded w-max mb-1 font-num">Day ${dayNum}</span>
-                            <span class="text-xs text-gray-400 font-num">${Utils.formatDate(dateStr)}</span>
-                        </div>
-                        ${btnHtml}
-                    </div>
-                `;
+                return `<div class="flex justify-between items-start mb-3"><div class="flex flex-col"><span class="text-xs font-bold text-brand-earth bg-gray-100 px-2 py-0.5 rounded w-max mb-1 font-num">Day ${dayNum}</span><span class="text-xs text-gray-400 font-num">${Utils.formatDate(dateStr)}</span></div>${btnHtml}</div>`;
             }
         };
 
@@ -190,11 +182,11 @@
 
             init() { try { this.loadData(); this.router('log'); if(this.data.gears.length === 0) this.seedGearData(); window.App = this; window.MapPicker = MapPicker; } catch(e) { throw new Error("Init Failed: " + e.message); } },
             loadData() { 
-                const stored = localStorage.getItem('island_walker_v14_db'); 
+                const stored = localStorage.getItem('island_walker_v15_db'); 
                 if (stored) { 
                     this.data = JSON.parse(stored); 
-                } else if (localStorage.getItem('island_walker_v13_db')) { 
-                    const v = JSON.parse(localStorage.getItem('island_walker_v13_db'));
+                } else if (localStorage.getItem('island_walker_v14_db')) { 
+                    const v = JSON.parse(localStorage.getItem('island_walker_v14_db'));
                     this.data = { ...v, targetKm: 1200 };
                     this.saveData(); 
                 } else if (localStorage.getItem('island_walker_v10_db')) { 
@@ -203,7 +195,7 @@
                     this.saveData();
                 }
             },
-            saveData() { localStorage.setItem('island_walker_v14_db', JSON.stringify(this.data)); this.calculateFirstDate(); this.updateGlobalStats(); },
+            saveData() { localStorage.setItem('island_walker_v15_db', JSON.stringify(this.data)); this.calculateFirstDate(); this.updateGlobalStats(); },
             calculateFirstDate() { if (this.data.logs.length > 0) { const sorted = [...this.data.logs].sort((a,b) => new Date(a.date) - new Date(b.date)); this.firstDate = sorted[0].date; } else { this.firstDate = null; } },
             getDayNumber(dateStr) { if (!this.firstDate) return 1; const start = Utils.getMidnight(this.firstDate); const current = Utils.getMidnight(dateStr); const diffTime = current - start; return Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1; },
             updateGlobalStats() { const totalKm = this.data.logs.reduce((acc, curr) => acc + Number(curr.km || 0), 0); const today = new Date().toISOString().split('T')[0]; const dayText = this.firstDate ? `Day ${this.getDayNumber(today)}` : '未開始'; const el = document.getElementById('total-stats'); if(el) el.innerText = `${dayText} • 累積 ${totalKm.toFixed(1)} km`; },
@@ -222,7 +214,6 @@
                 this.updateGlobalStats();
             },
 
-            // --- Log View ---
             renderLogView(container) {
                 const modeHtml = `<div class="flex justify-center mb-4 sticky top-0 z-20 bg-brand-bg py-2"><div class="bg-gray-200 p-1 rounded-xl flex text-xs font-bold shadow-inner"><button onclick="App.setLogMode('list')" class="px-6 py-2 rounded-lg transition-all ${this.logMode==='list'?'bg-white text-brand-dark shadow':'text-gray-500'}">列表</button><button onclick="App.setLogMode('calendar')" class="px-6 py-2 rounded-lg transition-all ${this.logMode==='calendar'?'bg-white text-brand-dark shadow':'text-gray-500'}">月曆</button></div></div>`;
 
@@ -238,14 +229,11 @@
                             const totalCost = expenses.reduce((acc, curr) => acc + Number(curr.price), 0) + stayCost;
                             let healthHtml = '';
                             if(log.health) {
-                                // No mood here
                                 const duration = log.health.duration || log.health.sleep || '0';
                                 healthHtml = `<div class="flex gap-2 mt-2 pt-2 border-t border-gray-100 text-xs text-gray-500"><span><i class="fa-solid fa-stopwatch"></i> ${duration}h</span><span>${log.health.condition==='good'?'💪 狀態佳':log.health.condition==='bad'?'⚠️ 不適':'🆗 普通'}</span>${log.health.pain?`<span>💊 ${log.health.pain}</span>`:''}</div>`;
                             }
                             const displayStart = Utils.extractCityDistrict(log.start) || log.start;
                             const displayEnd = Utils.extractCityDistrict(log.end) || log.end;
-                            
-                            // Consistent Header
                             const headerHtml = Utils.renderCardHeader(dayNum, log.date, `<button onclick="App.openLogModal(${log.id})" class="text-gray-300 p-2"><i class="fa-solid fa-pen-to-square"></i></button>`);
 
                             listHtml += `<div class="card p-5 mb-5 border-l-[6px] border-brand-dark">${headerHtml}<h3 class="text-xl font-bold text-brand-dark mb-1 flex items-center">${displayStart} <i class="fa-solid fa-arrow-right-long text-sm mx-2 text-gray-300"></i> ${displayEnd}</h3><div class="grid grid-cols-2 gap-3 my-3"><div class="bg-gray-50 p-2 rounded-lg"><div class="text-xs text-gray-400">里程</div><div class="font-bold text-brand-dark font-num text-lg">${log.km} <span class="text-xs">km</span></div></div><div class="bg-gray-50 p-2 rounded-lg"><div class="text-xs text-gray-400">總花費</div><div class="font-bold text-brand-accent font-num text-lg">$${totalCost}</div></div></div>${healthHtml}<div class="text-sm text-gray-600 leading-relaxed whitespace-pre-line mt-3">${log.note || ''}</div></div>`;
@@ -254,7 +242,7 @@
                     container.innerHTML = modeHtml + listHtml;
                     this.addFab(container, 'fa-plus', () => this.openLogModal());
                 } else {
-                    container.innerHTML = modeHtml + `<div id="calendar-container" class="animate-[fadeIn_0.2s]"></div>`;
+                    container.innerHTML = modeHtml + `<div id="calendar-container" class="animate-[fadeIn_0.2s] pb-10"></div>`;
                     this.renderCalendar();
                 }
             },
@@ -270,29 +258,22 @@
                 for (let d = 1; d <= daysInMonth; d++) {
                     const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
                     const log = this.data.logs.find(l => l.date === dateStr);
-                    // Updated Calendar Content: Date -> Health -> KM -> Time (Separate lines)
+                    // Updated Calendar Content (v15): Emoji for KM & Time
                     let contentHtml = `<div class="text-xs font-num mb-1 text-gray-600">${d}</div>`;
-                    
                     if(log) {
                         let healthIcon = '';
                         if(log.health) healthIcon = log.health.condition==='good'?'💪':log.health.condition==='bad'?'⚠️':'🆗';
-                        contentHtml += `<div class="text-[14px] mb-1">${healthIcon}</div>`;
-                        
-                        if(log.km) contentHtml += `<div class="text-[10px] text-brand-dark font-num font-bold leading-tight">${log.km}k</div>`;
-                        
+                        contentHtml += `<div class="text-[14px] mb-1 text-center">${healthIcon}</div>`;
+                        if(log.km) contentHtml += `<div class="text-[9px] text-brand-dark font-num font-bold leading-tight">👣 ${log.km}k</div>`;
                         const duration = (log.health && (log.health.duration || log.health.sleep)) || '0';
-                        if(duration != '0') contentHtml += `<div class="text-[9px] text-gray-400 font-num leading-tight">${duration}h</div>`;
-                    } else {
-                        // Empty placeholder
-                        contentHtml += `<div class="flex-1"></div>`;
-                    }
-
+                        if(duration != '0') contentHtml += `<div class="text-[9px] text-gray-400 font-num leading-tight">⏱️ ${duration}h</div>`;
+                    } else { contentHtml += `<div class="flex-1"></div>`; }
                     const todayClass = dateStr === new Date().toISOString().split('T')[0] ? 'cal-today' : '';
                     const hasDataClass = log ? 'bg-brand-light' : 'bg-gray-50';
                     html += `<div onclick="App.openLogFromCal('${dateStr}', ${log ? log.id : null})" class="cal-cell ${hasDataClass} ${todayClass}">${contentHtml}</div>`;
                 }
                 html += `</div>
-                <div class="flex gap-4 text-xs text-gray-500 mt-3 justify-center border-t pt-2">
+                <div class="flex gap-4 text-xs text-gray-500 mt-4 justify-center border-t pt-3 pb-2">
                     <span>💪 狀態佳</span> <span>🆗 普通</span> <span>⚠️ 不適</span>
                 </div>
                 </div>`;
@@ -312,7 +293,6 @@
             },
             editTarget() { const newT = prompt('設定目標公里數', this.data.targetKm); if(newT && !isNaN(newT)) { this.data.targetKm = Number(newT); this.saveData(); this.router('stats'); } },
 
-            // --- Updated Log Modal (Auto-fill from Route) ---
             openLogModal(editId = null, prefillDate = null) {
                 const isEdit = editId !== null;
                 let data = { expenses: [] };
@@ -344,7 +324,10 @@
                             <div class="flex gap-2"><input type="number" id="h-duration" class="input-field flex-1" placeholder="行走 (hr)" value="${h.duration || ''}"><input type="text" id="h-pain" class="input-field flex-[2]" placeholder="疼痛部位" value="${h.pain || ''}"></div>
                         </div>
                         <div class="bg-gray-50 p-3 rounded-xl border border-gray-100"><div class="flex justify-between items-center mb-2"><label class="text-xs font-bold text-gray-500">💰 當日開銷</label><button onclick="App.addExpenseRow()" class="text-xs bg-brand-dark text-white px-2 py-1 rounded">新增</button></div><div id="expense-container" class="space-y-2"></div>${stayCost > 0 ? `<div class="text-xs text-blue-600 mt-2 text-right">住宿費 $${stayCost} (自動帶入)</div>` : ''}</div>
+                        
+                        <label class="text-xs font-bold text-gray-500 block">今日心得</label>
                         <textarea id="log-note" class="input-field h-24" placeholder="日記心得...">${data.note || ''}</textarea>
+                        
                         <button onclick="App.submitLog(${editId})" class="w-full bg-brand-dark text-white py-3 rounded-xl font-bold shadow-lg mt-2">${isEdit ? '更新' : '儲存'}</button>
                         ${isEdit ? `<button onclick="App.deleteLog(${editId})" class="w-full text-red-400 text-sm mt-3">刪除</button>` : ''}
                     </div>
@@ -354,26 +337,27 @@
                 if(data.expenses && data.expenses.length > 0) data.expenses.forEach(e => this.addExpenseRow(e.name, e.price));
                 else this.addExpenseRow();
                 
-                // Auto check route if new log
+                // Feature 4: Auto check route if new log
                 if (!isEdit) this.checkRouteForDate(dateValue);
             },
 
-            // Feature 1: Auto check route
             checkRouteForDate(dateStr) {
                 const route = this.data.routes.find(r => r.date === dateStr);
+                const startEl = document.getElementById('log-start');
+                const endEl = document.getElementById('log-end');
+                const kmEl = document.getElementById('log-km');
+                
                 if (route) {
-                    const startEl = document.getElementById('log-start');
-                    const endEl = document.getElementById('log-end');
-                    const kmEl = document.getElementById('log-km');
-                    // Only fill if empty (or overwrite, since user selected date) -> Let's overwrite for convenience
                     startEl.value = route.start;
                     endEl.value = route.end;
                     kmEl.value = route.estKm;
-                    // Flash effect
-                    [startEl, endEl, kmEl].forEach(el => {
-                        el.style.backgroundColor = '#E8F5E9';
-                        setTimeout(() => el.style.backgroundColor = '#FAFAFA', 500);
-                    });
+                    // Visual feedback
+                    [startEl, endEl, kmEl].forEach(el => { el.style.backgroundColor = '#E8F5E9'; setTimeout(() => el.style.backgroundColor = '#FAFAFA', 500); });
+                } else {
+                    // Feature 4: Clear if no route found
+                    startEl.value = '';
+                    endEl.value = '';
+                    kmEl.value = '';
                 }
             },
 
@@ -381,13 +365,12 @@
                 const expenses = [];
                 document.querySelectorAll('.expense-row').forEach(row => { const name = row.querySelector('.ex-name').value; const price = row.querySelector('.ex-price').value; if(name && price) expenses.push({name, price}); });
                 const health = { condition: document.querySelector('input[name="h-cond"]:checked').value, duration: document.getElementById('h-duration').value, pain: document.getElementById('h-pain').value };
-                // Removed mood from collection
+                // Removed mood
                 const newLog = { id: editId || Date.now(), date: document.getElementById('log-date').value, start: document.getElementById('log-start').value, end: document.getElementById('log-end').value, km: document.getElementById('log-km').value, expenses: expenses, health: health, note: document.getElementById('log-note').value, coords: window.tempMapCoords || (editId ? this.data.logs.find(l=>l.id===editId).coords : null) };
                 if (editId) { const idx = this.data.logs.findIndex(l => l.id === editId); this.data.logs[idx] = newLog; } else { this.data.logs.unshift(newLog); }
                 window.tempMapCoords = null; this.saveData(); this.closeModal(); this.router('log');
             },
 
-            // --- Updated Views (Consistent Cards) ---
             renderRouteView(container) {
                 let html = `<a href="https://www.google.com/maps" target="_blank" class="flex items-center justify-center bg-white text-brand-dark py-3 rounded-xl mb-6 shadow-sm border border-gray-100 font-bold"><i class="fa-brands fa-google text-lg mr-2 text-red-500"></i> 開啟 Google Maps</a>`;
                 if (this.data.routes.length === 0) html += `<div class="text-center text-gray-400 mt-10">尚未規劃路線</div>`;
@@ -399,10 +382,7 @@
                         if (route.coords && route.coords.waypoints && route.coords.waypoints.length > 0) { const waypoints = route.coords.waypoints.map(w => `${w.lat},${w.lng}`).join('|'); navLink = `https://www.google.com/maps/dir/?api=1&origin=${route.coords.start.lat},${route.coords.start.lng}&destination=${route.coords.end.lat},${route.coords.end.lng}&waypoints=${waypoints}&travelmode=walking`; } else if (route.coords && route.coords.start) { navLink = `https://www.google.com/maps/dir/?api=1&origin=${route.coords.start.lat},${route.coords.start.lng}&destination=${route.coords.end.lat},${route.coords.end.lng}&travelmode=walking`; }
                         const displayStart = Utils.extractCityDistrict(route.start) || route.start;
                         const displayEnd = Utils.extractCityDistrict(route.end) || route.end;
-                        
-                        // Consistent Header
                         const headerHtml = Utils.renderCardHeader(route.dayNum, route.date, `<button onclick="App.openRouteModal(${route.id})" class="text-gray-300 px-2"><i class="fa-solid fa-pen"></i></button>`);
-
                         html += `<div class="relative group"><div class="absolute -left-[33px] top-4 w-4 h-4 rounded-full bg-brand-dark ${isToday ? 'ring-4 ring-brand-accent/30 bg-brand-accent' : ''}"></div><div class="card p-4 ${isToday ? 'border-2 border-brand-accent' : ''}">${headerHtml}<h4 class="font-bold text-lg text-brand-dark mb-1">${displayStart} → ${displayEnd}</h4><div class="text-sm text-gray-600 mb-3 font-num font-medium">預估：${route.estKm} km</div><div class="flex gap-2 mt-3"><a href="${navLink}" target="_blank" class="flex-1 bg-brand-dark text-white py-2 rounded-lg text-xs font-bold text-center flex items-center justify-center"><i class="fa-solid fa-location-arrow mr-1"></i> 導航</a>${route.note ? `<button onclick="alert('${route.note}')" class="px-3 bg-gray-100 rounded-lg text-gray-600"><i class="fa-solid fa-message"></i></button>` : ''}</div></div></div>`;
                     });
                     html += '</div>';
@@ -417,30 +397,17 @@
             },
             submitRoute(editId) { const newRoute={id:editId||Date.now(),dayNum:document.getElementById('route-day').value,date:document.getElementById('route-date').value,start:document.getElementById('route-start').value,end:document.getElementById('route-end').value,estKm:document.getElementById('route-km').value,note:document.getElementById('route-note').value,coords:window.tempMapCoords||(editId?this.data.routes.find(r=>r.id===editId).coords:null)}; if(editId){const idx=this.data.routes.findIndex(r=>r.id===editId);this.data.routes[idx]=newRoute;}else{this.data.routes.push(newRoute);}window.tempMapCoords=null;this.saveData();this.closeModal();this.router('route'); },
             deleteRoute(id) { if(confirm('刪除?')) { this.data.routes = this.data.routes.filter(r => r.id !== id); this.saveData(); this.closeModal(); this.router('route'); }},
-
-            renderStayView(container) {
-                let html = '';
-                if (this.data.stays.length === 0) html += `<div class="text-center text-gray-400 mt-20">尚未紀錄住宿</div>`;
-                else {
-                    this.data.stays.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(stay => {
-                        const dayNum = this.getDayNumber(stay.date);
-                        // Consistent Header
-                        const headerHtml = Utils.renderCardHeader(dayNum, stay.date, `<button onclick="App.openStayModal(${stay.id})" class="text-gray-300 px-2"><i class="fa-solid fa-pen"></i></button>`);
-                        
-                        html += `<div class="card p-5 mb-4">${headerHtml}<div class="flex justify-between items-center mt-2"><h3 class="text-xl font-bold text-brand-dark">${stay.name}</h3><span class="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600">${stay.type}</span></div><div class="text-brand-accent font-bold my-2 font-num text-lg">$${stay.price}</div>${stay.contact ? `<div class="text-sm text-gray-600 mb-1"><i class="fa-solid fa-phone w-5"></i> <a href="tel:${stay.contact}" class="underline">${stay.contact}</a></div>` : ''}${stay.note ? `<div class="text-xs text-gray-500 bg-brand-light p-2 rounded mt-2">${stay.note}</div>` : ''}${stay.mapLink ? `<a href="${stay.mapLink}" target="_blank" class="mt-2 block text-center bg-blue-50 py-2 rounded-lg text-sm font-bold text-blue-600 hover:bg-blue-100"><i class="fa-solid fa-map-location-dot"></i> 開啟地圖</a>` : ''}</div>`;
-                    });
-                }
-                container.innerHTML = html;
-                this.addFab(container, 'fa-bed', () => this.openStayModal());
-            },
+            renderStayView(container) { let html = ''; if (this.data.stays.length === 0) html += `<div class="text-center text-gray-400 mt-20">尚未紀錄住宿</div>`; else { this.data.stays.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(stay => { const dayNum = this.getDayNumber(stay.date); const headerHtml = Utils.renderCardHeader(dayNum, stay.date, `<button onclick="App.openStayModal(${stay.id})" class="text-gray-300 px-2"><i class="fa-solid fa-pen"></i></button>`); html += `<div class="card p-5 mb-4">${headerHtml}<div class="flex justify-between items-center mt-2"><h3 class="text-xl font-bold text-brand-dark">${stay.name}</h3><span class="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600">${stay.type}</span></div><div class="text-brand-accent font-bold my-2 font-num text-lg">$${stay.price}</div>${stay.contact ? `<div class="text-sm text-gray-600 mb-1"><i class="fa-solid fa-phone w-5"></i> <a href="tel:${stay.contact}" class="underline">${stay.contact}</a></div>` : ''}${stay.note ? `<div class="text-xs text-gray-500 bg-brand-light p-2 rounded mt-2">${stay.note}</div>` : ''}${stay.mapLink ? `<a href="${stay.mapLink}" target="_blank" class="mt-2 block text-center bg-blue-50 py-2 rounded-lg text-sm font-bold text-blue-600 hover:bg-blue-100"><i class="fa-solid fa-map-location-dot"></i> 開啟地圖</a>` : ''}</div>`; }); } container.innerHTML = html; this.addFab(container, 'fa-bed', () => this.openStayModal()); },
             openStayModal(editId = null) { const isEdit = editId !== null; let data = {}; if(isEdit) data = this.data.stays.find(s => s.id === editId); const formHtml = `<div class="space-y-4"><input type="date" id="stay-date" class="input-field font-num" value="${data.date || ''}"><input type="text" id="stay-name" class="input-field" placeholder="住宿名稱" value="${data.name || ''}"><div class="grid grid-cols-2 gap-3"><select id="stay-type" class="input-field">${['民宿','青旅','旅館','借宿','野宿'].map(t => `<option value="${t}" ${data.type===t?'selected':''}>${t}</option>`).join('')}</select><input type="number" id="stay-price" class="input-field font-num" placeholder="價格" inputmode="numeric" value="${data.price || ''}"></div><input type="tel" id="stay-contact" class="input-field font-num" placeholder="電話" value="${data.contact || ''}"><div class="text-[10px] text-gray-500 bg-gray-50 p-2 rounded">備註：請手動貼上 Google Maps 分享連結 (無法自動帶入資料)。</div><input type="text" id="stay-map" class="input-field" placeholder="Google Map 分享連結" value="${data.mapLink || ''}"><input type="text" id="stay-note" class="input-field" placeholder="備註 (插座、洗衣機...)" value="${data.note || ''}"><button onclick="App.submitStay(${editId})" class="w-full bg-brand-dark text-white py-3 rounded-xl font-bold shadow-lg mt-2">${isEdit ? '更新' : '儲存'}</button>${isEdit ? `<button onclick="App.deleteStay(${editId})" class="w-full text-red-400 text-sm mt-3">刪除</button>` : ''}</div>`; this.showModal(isEdit?'編輯住宿':'新增住宿', formHtml); },
             submitStay(editId) { const newStay = { id: editId || Date.now(), date: document.getElementById('stay-date').value, name: document.getElementById('stay-name').value, type: document.getElementById('stay-type').value, price: document.getElementById('stay-price').value, contact: document.getElementById('stay-contact').value, mapLink: document.getElementById('stay-map').value, note: document.getElementById('stay-note').value }; if(editId) { const idx = this.data.stays.findIndex(s => s.id === editId); this.data.stays[idx] = newStay; } else { this.data.stays.push(newStay); } this.saveData(); this.closeModal(); this.router('stay'); },
             deleteStay(id) { if(confirm('刪除?')) { this.data.stays = this.data.stays.filter(s => s.id !== id); this.saveData(); this.closeModal(); this.router('stay'); }},
-            renderGearView(container) { container.innerHTML = `<div class="flex overflow-x-auto no-scrollbar space-x-2 mb-4 sticky top-0 bg-brand-bg z-10 py-2 px-1"><button onclick="App.filterGear('all')" class="flex-none px-4 py-2 bg-white rounded-lg shadow-sm text-xs font-bold border border-gray-100">全部</button><button onclick="App.filterGear('clothing')" class="flex-none px-4 py-2 bg-white rounded-lg shadow-sm text-xs font-bold border border-gray-100">衣物</button><button onclick="App.filterGear('rain')" class="flex-none px-4 py-2 bg-white rounded-lg shadow-sm text-xs font-bold border border-gray-100">雨具</button><button onclick="App.filterGear('sleep')" class="flex-none px-4 py-2 bg-white rounded-lg shadow-sm text-xs font-bold border border-gray-100">睡眠</button><button onclick="App.filterGear('elec')" class="flex-none px-4 py-2 bg-white rounded-lg shadow-sm text-xs font-bold border border-gray-100">電子</button><button onclick="App.filterGear('clean')" class="flex-none px-4 py-2 bg-white rounded-lg shadow-sm text-xs font-bold border border-gray-100">清潔</button><button onclick="App.filterGear('med')" class="flex-none px-4 py-2 bg-white rounded-lg shadow-sm text-xs font-bold border border-gray-100">醫藥</button><button onclick="App.filterGear('id')" class="flex-none px-4 py-2 bg-white rounded-lg shadow-sm text-xs font-bold border border-gray-100">隨身</button><button onclick="App.filterGear('food')" class="flex-none px-4 py-2 bg-white rounded-lg shadow-sm text-xs font-bold border border-gray-100">食水</button><button onclick="App.filterGear('other')" class="flex-none px-4 py-2 bg-white rounded-lg shadow-sm text-xs font-bold border border-gray-100">其他</button></div><div class="flex justify-between items-center mb-2 px-1"><h3 class="font-bold text-brand-dark">裝備清單 (1/5體重法則)</h3><button onclick="App.openGearAdd()" class="text-sm text-brand-accent font-bold"><i class="fa-solid fa-plus"></i> 新增</button></div><div id="gear-list" class="space-y-3 pb-20"></div>`; this.filterGear('all'); },
-            filterGear(c) { const el = document.getElementById('gear-list'); el.innerHTML = ''; const f = c === 'all' ? this.data.gears : this.data.gears.filter(g => g.cat === c); if(f.length === 0) { el.innerHTML = '<div class="text-center text-gray-300 py-10">無項目</div>'; return; } f.forEach(i => el.innerHTML += `<div class="card p-3 flex justify-between items-center"><div class="flex items-center flex-1" onclick="App.toggleGear(${i.id})"><i class="fa-regular ${i.checked ? 'fa-square-check text-brand-dark' : 'fa-square text-gray-300'} text-xl mr-3 cursor-pointer"></i><span class="${i.checked ? 'text-gray-400 line-through' : 'text-brand-dark font-medium'}">${i.name}</span></div><button onclick="App.deleteGear(${i.id})" class="text-gray-200 px-2 hover:text-red-400"><i class="fa-solid fa-trash"></i></button></div>`); },
-            toggleGear(id) { const g = this.data.gears.find(i=>i.id===id); if(g) { g.checked = !g.checked; this.saveData(); this.router('gear'); } },
-            openGearAdd() { this.showModal('新增裝備', `<div class="space-y-4"><input type="text" id="gear-name" class="input-field" placeholder="裝備名稱"><select id="gear-cat" class="input-field"><option value="clothing">衣物</option><option value="rain">雨具</option><option value="sleep">帳篷/睡眠</option><option value="elec">電子</option><option value="clean">清潔</option><option value="med">醫藥</option><option value="id">隨身</option><option value="food">食水</option><option value="other">其他</option></select><button onclick="App.submitGear()" class="w-full bg-brand-dark text-white py-3 rounded-xl font-bold">新增</button></div>`); },
-            submitGear() { this.data.gears.push({ id: Date.now(), name: document.getElementById('gear-name').value, cat: document.getElementById('gear-cat').value, checked: false }); this.saveData(); this.closeModal(); this.router('gear'); },
+            renderGearView(container) { container.innerHTML = `<div class="grid grid-cols-5 gap-2 mb-4 sticky top-0 bg-brand-bg z-10 py-2 px-1"><button onclick="App.filterGear('all')" class="py-2 bg-white rounded-lg shadow-sm text-[10px] font-bold border border-gray-100">全部</button><button onclick="App.filterGear('clothing')" class="py-2 bg-white rounded-lg shadow-sm text-[10px] font-bold border border-gray-100">衣物</button><button onclick="App.filterGear('rain')" class="py-2 bg-white rounded-lg shadow-sm text-[10px] font-bold border border-gray-100">雨具</button><button onclick="App.filterGear('sleep')" class="py-2 bg-white rounded-lg shadow-sm text-[10px] font-bold border border-gray-100">睡眠</button><button onclick="App.filterGear('elec')" class="py-2 bg-white rounded-lg shadow-sm text-[10px] font-bold border border-gray-100">電子</button><button onclick="App.filterGear('clean')" class="py-2 bg-white rounded-lg shadow-sm text-[10px] font-bold border border-gray-100">清潔</button><button onclick="App.filterGear('med')" class="py-2 bg-white rounded-lg shadow-sm text-[10px] font-bold border border-gray-100">醫藥</button><button onclick="App.filterGear('id')" class="py-2 bg-white rounded-lg shadow-sm text-[10px] font-bold border border-gray-100">隨身</button><button onclick="App.filterGear('food')" class="py-2 bg-white rounded-lg shadow-sm text-[10px] font-bold border border-gray-100">食水</button><button onclick="App.filterGear('other')" class="py-2 bg-white rounded-lg shadow-sm text-[10px] font-bold border border-gray-100">其他</button></div><div class="flex justify-between items-center mb-2 px-1"><h3 class="font-bold text-brand-dark">裝備清單</h3><button onclick="App.openGearAdd()" class="text-sm text-brand-accent font-bold"><i class="fa-solid fa-plus"></i> 新增</button></div><div id="gear-list" class="space-y-2 pb-20"></div>`; this.filterGear('all'); },
+            filterGear(c) { const el = document.getElementById('gear-list'); el.innerHTML = ''; const f = c === 'all' ? this.data.gears : this.data.gears.filter(g => g.cat === c); if(f.length === 0) { el.innerHTML = '<div class="text-center text-gray-300 py-10">無項目</div>'; return; } f.forEach(i => { const isChecked = i.checked; el.innerHTML += `<div class="card p-3 flex justify-between items-center"><div class="flex items-center flex-1 cursor-pointer" onclick="App.toggleGear(${i.id})"><i class="fa-regular ${isChecked ? 'fa-square-check text-brand-dark' : 'fa-square text-gray-300'} text-xl mr-3"></i><span class="${isChecked ? 'text-gray-400 line-through' : 'text-brand-dark font-medium'}">${i.name}</span></div><div class="flex gap-2"><button onclick="App.openGearEdit(${i.id})" class="text-gray-300 px-2 hover:text-blue-500"><i class="fa-solid fa-pen"></i></button><button onclick="App.deleteGear(${i.id})" class="text-gray-300 px-2 hover:text-red-400"><i class="fa-solid fa-trash"></i></button></div></div>`; }); },
+            toggleGear(id) { const g = this.data.gears.find(i=>i.id===id); if(g) { g.checked = !g.checked; this.saveData(); this.filterGear('all'); } },
+            openGearAdd() { this.openGearModal(null); },
+            openGearEdit(id) { this.openGearModal(id); },
+            openGearModal(id) { const isEdit = id !== null; let data = { name: '', cat: 'clothing' }; if (isEdit) data = this.data.gears.find(g => g.id === id); const formHtml = `<div class="space-y-4"><input type="text" id="gear-name" class="input-field" placeholder="裝備名稱" value="${data.name}"><select id="gear-cat" class="input-field"><option value="clothing" ${data.cat==='clothing'?'selected':''}>衣物</option><option value="rain" ${data.cat==='rain'?'selected':''}>雨具</option><option value="sleep" ${data.cat==='sleep'?'selected':''}>帳篷/睡眠</option><option value="elec" ${data.cat==='elec'?'selected':''}>電子</option><option value="clean" ${data.cat==='clean'?'selected':''}>清潔</option><option value="med" ${data.cat==='med'?'selected':''}>醫藥</option><option value="id" ${data.cat==='id'?'selected':''}>隨身</option><option value="food" ${data.cat==='food'?'selected':''}>食水</option><option value="other" ${data.cat==='other'?'selected':''}>其他</option></select><button onclick="App.submitGear(${id})" class="w-full bg-brand-dark text-white py-3 rounded-xl font-bold">${isEdit?'更新':'新增'}</button></div>`; this.showModal(isEdit ? '編輯裝備' : '新增裝備', formHtml); },
+            submitGear(id) { const name = document.getElementById('gear-name').value; const cat = document.getElementById('gear-cat').value; if(id) { const g = this.data.gears.find(i => i.id === id); if(g) { g.name = name; g.cat = cat; } } else { this.data.gears.push({ id: Date.now(), name: name, cat: cat, checked: false }); } this.saveData(); this.closeModal(); this.router('gear'); },
             deleteGear(id) { if(confirm('刪除?')) { this.data.gears = this.data.gears.filter(g=>g.id!==id); this.saveData(); this.router('gear'); }},
             seedGearData() { 
                 this.data.gears = [
@@ -457,6 +424,7 @@
                 this.saveData(); 
             },
 
+            // Helpers
             getStayCostByDate(date) { const stay = this.data.stays.find(s => s.date === date); return stay ? Number(stay.price || 0) : 0; },
             addFab(c,i,cb) { const b=document.createElement('div'); b.className='fab'; b.innerHTML=`<i class="fa-solid ${i}"></i>`; b.onclick=cb; c.appendChild(b); },
             showModal(t,h) { document.getElementById('modal-title').innerText=t; document.getElementById('modal-content').innerHTML=h; document.getElementById('modal').classList.remove('hidden'); },

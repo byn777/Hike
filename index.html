@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>徒步環島紀錄 v15</title>
+    <title>徒步環島紀錄 v16</title>
     
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
@@ -47,9 +47,9 @@
         .custom-pin { text-align: center; }
         .pin-number { background: #2C5E50; color: white; border-radius: 50%; width: 24px; height: 24px; font-size: 14px; line-height: 24px; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); font-weight: bold; }
         
-        /* Calendar Styles v15 */
+        /* Calendar Styles v16 */
         .cal-cell { 
-            min-height: 80px; /* Ensure space for content */
+            min-height: 80px; 
             border-radius: 8px; 
             font-size: 12px; 
             position: relative; 
@@ -60,6 +60,7 @@
             flex-direction: column; 
             padding: 2px;
             align-items: center;
+            justify-content: flex-start;
             overflow: hidden;
         }
         .cal-cell:active { transform: scale(0.98); background: #f3f4f6; }
@@ -102,17 +103,6 @@
                 <button onclick="App.closeModal()" class="text-gray-400 hover:text-gray-600 px-2"><i class="fa-solid fa-xmark text-xl"></i></button>
             </div>
             <div id="modal-content" class="flex-1 overflow-y-auto no-scrollbar space-y-4"></div>
-        </div>
-    </div>
-
-    <!-- Import Modal -->
-    <div id="import-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
-        <div class="bg-white w-full max-w-md rounded-2xl p-5 shadow-2xl max-h-[80vh] flex flex-col">
-            <div class="flex justify-between items-center mb-4 flex-none border-b pb-3">
-                <h3 class="text-lg font-bold text-brand-dark">選擇規劃路線匯入</h3>
-                <button onclick="App.closeImportModal()" class="text-gray-400 px-2"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            <div id="import-list" class="flex-1 overflow-y-auto space-y-3"></div>
         </div>
     </div>
 
@@ -165,7 +155,7 @@
             addStopInput(placeholder = '途經點') { const id = Date.now() + Math.random(); const stop = { id, text: '', coords: null, marker: null }; this.stops.push(stop); this.renderStopList(); },
             removeStop(id) { if(this.stops.length <= 2) return alert('至少需要起點和終點'); const idx = this.stops.findIndex(s => s.id === id); if(this.stops[idx].marker) this.map.removeLayer(this.stops[idx].marker); this.stops = this.stops.filter(s => s.id !== id); this.renderStopList(); this.cleanMapLayers(); },
             renderStopList() { const container = document.getElementById('stops-list'); container.innerHTML = ''; this.stops.forEach((stop, index) => { const isStart = index === 0; const isEnd = index === this.stops.length - 1; const label = isStart ? '起' : isEnd ? '終' : (index); const colorClass = isStart ? 'bg-brand-dark' : isEnd ? 'bg-brand-accent' : 'bg-gray-400'; const div = document.createElement('div'); div.className = 'flex items-center gap-2 animate-[fadeIn_0.2s]'; div.innerHTML = `<div class="flex-none w-6 h-6 rounded-full ${colorClass} text-white text-xs font-bold flex items-center justify-center">${label}</div><input type="text" class="flex-1 bg-gray-100 rounded-lg px-3 py-2 text-sm border border-transparent focus:bg-white focus:border-brand-dark outline-none transition" placeholder="${isStart?'輸入地址...':isEnd?'輸入地址...':'輸入途經點...'}" value="${stop.text}">${this.stops.length > 2 ? `<button onclick="MapPicker.removeStop(${stop.id})" class="text-gray-300 hover:text-red-400 px-1"><i class="fa-solid fa-xmark"></i></button>` : ''}`; div.querySelector('input').addEventListener('input', (e) => stop.text = e.target.value); container.appendChild(div); }); },
-            async processInputs() { const inputs = this.stops.filter(s => s.text.trim() !== ''); if (inputs.length < 2) return alert('請至少輸入起點和終點'); document.getElementById('map-result-text').innerText = '定位中...'; this.stops.forEach(s => { if(s.marker) this.map.removeLayer(s.marker); }); for (let i = 0; i < inputs.length; i++) { const stop = inputs[i]; try { const coords = await this.smartGeocode(stop.text); if (coords) { stop.coords = coords; this.addMarker(stop, i); } else { alert(`找不到: ${stop.text}`); document.getElementById('map-result-text').innerText = '定位失敗'; return; } await new Promise(r => setTimeout(r, 600)); } catch (e) { alert('網路錯誤'); return; } } this.calculateRoute(); },
+            async processInputs() { const inputs = this.stops.filter(s => s.text.trim() !== ''); if (inputs.length < 2) return alert('請至少輸入起點和終點'); document.getElementById('map-result-text').innerText = '定位中...'; this.stops.forEach(s => { if(s.marker) this.map.removeLayer(s.marker); }); for (let i = 0; i < inputs.length; i++) { const stop = inputs[i]; try { const coords = await this.smartGeocode(stop.text); if (coords) { stop.coords = coords; this.addMarker(stop, i); } else { alert(`找不到: ${stop.text} (建議輸入完整地址)`); document.getElementById('map-result-text').innerText = '定位失敗'; return; } await new Promise(r => setTimeout(r, 600)); } catch (e) { alert('網路錯誤'); return; } } this.calculateRoute(); },
             async smartGeocode(query) { let res = await this.geocode(query); if (res) return res; const noZip = query.replace(/^\d{3,5}/, '').trim(); if (noZip !== query) { res = await this.geocode(noZip); if (res) return res; } const noDetail = noZip.replace(/[\d]+[之\-]\d+號?|[\d]+[號樓Ff].*$/, '').trim(); if (noDetail !== noZip && noDetail.length > 3) { res = await this.geocode(noDetail); if (res) return res; } return null; },
             async geocode(query) { try { const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`; const res = await fetch(url); const data = await res.json(); if (data && data.length > 0) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }; } catch(e) { return null; } return null; },
             addMarker(stop, index) { const label = (index + 1).toString(); const html = `<div class="pin-number">${label}</div>`; const icon = L.divIcon({ className: 'custom-pin', html: html, iconSize: [24, 24] }); const marker = L.marker([stop.coords.lat, stop.coords.lng], { icon: icon, draggable: true }).addTo(this.map); marker.on('dragend', (e) => { stop.coords = e.target.getLatLng(); this.calculateRoute(); }); stop.marker = marker; },
@@ -182,20 +172,20 @@
 
             init() { try { this.loadData(); this.router('log'); if(this.data.gears.length === 0) this.seedGearData(); window.App = this; window.MapPicker = MapPicker; } catch(e) { throw new Error("Init Failed: " + e.message); } },
             loadData() { 
-                const stored = localStorage.getItem('island_walker_v15_db'); 
+                const stored = localStorage.getItem('island_walker_v16_db'); 
                 if (stored) { 
                     this.data = JSON.parse(stored); 
-                } else if (localStorage.getItem('island_walker_v14_db')) { 
-                    const v = JSON.parse(localStorage.getItem('island_walker_v14_db'));
+                } else if (localStorage.getItem('island_walker_v15_db')) { 
+                    const v = JSON.parse(localStorage.getItem('island_walker_v15_db'));
                     this.data = { ...v, targetKm: 1200 };
                     this.saveData(); 
-                } else if (localStorage.getItem('island_walker_v10_db')) { 
-                    const v = JSON.parse(localStorage.getItem('island_walker_v10_db'));
+                } else if (localStorage.getItem('island_walker_v13_db')) { 
+                    const v = JSON.parse(localStorage.getItem('island_walker_v13_db'));
                     this.data = { ...v, targetKm: 1200 };
                     this.saveData();
                 }
             },
-            saveData() { localStorage.setItem('island_walker_v15_db', JSON.stringify(this.data)); this.calculateFirstDate(); this.updateGlobalStats(); },
+            saveData() { localStorage.setItem('island_walker_v16_db', JSON.stringify(this.data)); this.calculateFirstDate(); this.updateGlobalStats(); },
             calculateFirstDate() { if (this.data.logs.length > 0) { const sorted = [...this.data.logs].sort((a,b) => new Date(a.date) - new Date(b.date)); this.firstDate = sorted[0].date; } else { this.firstDate = null; } },
             getDayNumber(dateStr) { if (!this.firstDate) return 1; const start = Utils.getMidnight(this.firstDate); const current = Utils.getMidnight(dateStr); const diffTime = current - start; return Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1; },
             updateGlobalStats() { const totalKm = this.data.logs.reduce((acc, curr) => acc + Number(curr.km || 0), 0); const today = new Date().toISOString().split('T')[0]; const dayText = this.firstDate ? `Day ${this.getDayNumber(today)}` : '未開始'; const el = document.getElementById('total-stats'); if(el) el.innerText = `${dayText} • 累積 ${totalKm.toFixed(1)} km`; },
@@ -242,7 +232,7 @@
                     container.innerHTML = modeHtml + listHtml;
                     this.addFab(container, 'fa-plus', () => this.openLogModal());
                 } else {
-                    container.innerHTML = modeHtml + `<div id="calendar-container" class="animate-[fadeIn_0.2s] pb-10"></div>`;
+                    container.innerHTML = modeHtml + `<div id="calendar-container" class="animate-[fadeIn_0.2s]"></div>`;
                     this.renderCalendar();
                 }
             },
@@ -258,22 +248,22 @@
                 for (let d = 1; d <= daysInMonth; d++) {
                     const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
                     const log = this.data.logs.find(l => l.date === dateStr);
-                    // Updated Calendar Content (v15): Emoji for KM & Time
+                    // Updated Calendar Content: Date -> Health(Center) -> KM(Bold) -> Time
                     let contentHtml = `<div class="text-xs font-num mb-1 text-gray-600">${d}</div>`;
                     if(log) {
                         let healthIcon = '';
                         if(log.health) healthIcon = log.health.condition==='good'?'💪':log.health.condition==='bad'?'⚠️':'🆗';
                         contentHtml += `<div class="text-[14px] mb-1 text-center">${healthIcon}</div>`;
-                        if(log.km) contentHtml += `<div class="text-[9px] text-brand-dark font-num font-bold leading-tight">👣 ${log.km}k</div>`;
+                        if(log.km) contentHtml += `<div class="text-[9px] text-brand-dark font-num font-bold leading-tight">${log.km}<span class="text-[7px] text-gray-400 font-normal">km</span></div>`;
                         const duration = (log.health && (log.health.duration || log.health.sleep)) || '0';
-                        if(duration != '0') contentHtml += `<div class="text-[9px] text-gray-400 font-num leading-tight">⏱️ ${duration}h</div>`;
+                        if(duration != '0') contentHtml += `<div class="text-[9px] text-gray-400 font-num leading-tight">⏱️${duration}h</div>`;
                     } else { contentHtml += `<div class="flex-1"></div>`; }
                     const todayClass = dateStr === new Date().toISOString().split('T')[0] ? 'cal-today' : '';
                     const hasDataClass = log ? 'bg-brand-light' : 'bg-gray-50';
                     html += `<div onclick="App.openLogFromCal('${dateStr}', ${log ? log.id : null})" class="cal-cell ${hasDataClass} ${todayClass}">${contentHtml}</div>`;
                 }
                 html += `</div>
-                <div class="flex gap-4 text-xs text-gray-500 mt-4 justify-center border-t pt-3 pb-2">
+                <div class="flex gap-4 text-xs text-gray-500 mt-4 justify-center border-t pt-3 pb-10">
                     <span>💪 狀態佳</span> <span>🆗 普通</span> <span>⚠️ 不適</span>
                 </div>
                 </div>`;
@@ -293,6 +283,7 @@
             },
             editTarget() { const newT = prompt('設定目標公里數', this.data.targetKm); if(newT && !isNaN(newT)) { this.data.targetKm = Number(newT); this.saveData(); this.router('stats'); } },
 
+            // --- Feature 1: Log Modal Clean Up (No Button, Auto Fill) ---
             openLogModal(editId = null, prefillDate = null) {
                 const isEdit = editId !== null;
                 let data = { expenses: [] };
@@ -305,15 +296,14 @@
 
                 const formHtml = `
                     <div class="space-y-4">
-                        <div class="flex justify-between items-center mb-2">
-                            <input type="date" id="log-date" class="input-field font-num flex-1 mr-2" value="${dateValue}" onchange="App.checkRouteForDate(this.value)">
-                            <button onclick="App.checkRouteForDate(document.getElementById('log-date').value)" class="bg-brand-light text-brand-dark px-3 py-2 rounded-lg border border-brand-dark text-xs font-bold whitespace-nowrap"><i class="fa-solid fa-file-import mr-1"></i> 匯入規劃</button>
-                        </div>
+                        <input type="date" id="log-date" class="input-field font-num w-full" value="${dateValue}" onchange="App.checkRouteForDate(this.value)">
+                        
                         <div class="bg-blue-50 p-3 rounded-xl border border-blue-100">
                             <label class="text-xs font-bold text-blue-800 mb-2 block">🚶 行走紀錄</label>
                             <div class="grid grid-cols-2 gap-3 mb-3"><input type="text" id="log-start" class="input-field" placeholder="起點" value="${data.start || ''}"><input type="text" id="log-end" class="input-field" placeholder="終點" value="${data.end || ''}"></div>
                             <div class="relative"><input type="number" id="log-km" class="input-field pr-4 font-num" placeholder="今日里程 (km)" inputmode="decimal" value="${data.km || ''}"></div>
                         </div>
+
                         <div class="bg-red-50 p-3 rounded-xl border border-red-100">
                             <label class="text-xs font-bold text-red-800 mb-2 block">🏥 身體狀態</label>
                             <div class="flex gap-2 mb-3">
@@ -323,6 +313,7 @@
                             </div>
                             <div class="flex gap-2"><input type="number" id="h-duration" class="input-field flex-1" placeholder="行走 (hr)" value="${h.duration || ''}"><input type="text" id="h-pain" class="input-field flex-[2]" placeholder="疼痛部位" value="${h.pain || ''}"></div>
                         </div>
+
                         <div class="bg-gray-50 p-3 rounded-xl border border-gray-100"><div class="flex justify-between items-center mb-2"><label class="text-xs font-bold text-gray-500">💰 當日開銷</label><button onclick="App.addExpenseRow()" class="text-xs bg-brand-dark text-white px-2 py-1 rounded">新增</button></div><div id="expense-container" class="space-y-2"></div>${stayCost > 0 ? `<div class="text-xs text-blue-600 mt-2 text-right">住宿費 $${stayCost} (自動帶入)</div>` : ''}</div>
                         
                         <label class="text-xs font-bold text-gray-500 block">今日心得</label>
@@ -365,12 +356,12 @@
                 const expenses = [];
                 document.querySelectorAll('.expense-row').forEach(row => { const name = row.querySelector('.ex-name').value; const price = row.querySelector('.ex-price').value; if(name && price) expenses.push({name, price}); });
                 const health = { condition: document.querySelector('input[name="h-cond"]:checked').value, duration: document.getElementById('h-duration').value, pain: document.getElementById('h-pain').value };
-                // Removed mood
                 const newLog = { id: editId || Date.now(), date: document.getElementById('log-date').value, start: document.getElementById('log-start').value, end: document.getElementById('log-end').value, km: document.getElementById('log-km').value, expenses: expenses, health: health, note: document.getElementById('log-note').value, coords: window.tempMapCoords || (editId ? this.data.logs.find(l=>l.id===editId).coords : null) };
                 if (editId) { const idx = this.data.logs.findIndex(l => l.id === editId); this.data.logs[idx] = newLog; } else { this.data.logs.unshift(newLog); }
                 window.tempMapCoords = null; this.saveData(); this.closeModal(); this.router('log');
             },
 
+            // --- Feature 3: Updated Route View (Consistent Card & Auto Day) ---
             renderRouteView(container) {
                 let html = `<a href="https://www.google.com/maps" target="_blank" class="flex items-center justify-center bg-white text-brand-dark py-3 rounded-xl mb-6 shadow-sm border border-gray-100 font-bold"><i class="fa-brands fa-google text-lg mr-2 text-red-500"></i> 開啟 Google Maps</a>`;
                 if (this.data.routes.length === 0) html += `<div class="text-center text-gray-400 mt-10">尚未規劃路線</div>`;
@@ -382,8 +373,10 @@
                         if (route.coords && route.coords.waypoints && route.coords.waypoints.length > 0) { const waypoints = route.coords.waypoints.map(w => `${w.lat},${w.lng}`).join('|'); navLink = `https://www.google.com/maps/dir/?api=1&origin=${route.coords.start.lat},${route.coords.start.lng}&destination=${route.coords.end.lat},${route.coords.end.lng}&waypoints=${waypoints}&travelmode=walking`; } else if (route.coords && route.coords.start) { navLink = `https://www.google.com/maps/dir/?api=1&origin=${route.coords.start.lat},${route.coords.start.lng}&destination=${route.coords.end.lat},${route.coords.end.lng}&travelmode=walking`; }
                         const displayStart = Utils.extractCityDistrict(route.start) || route.start;
                         const displayEnd = Utils.extractCityDistrict(route.end) || route.end;
+                        // Consistent Header
                         const headerHtml = Utils.renderCardHeader(route.dayNum, route.date, `<button onclick="App.openRouteModal(${route.id})" class="text-gray-300 px-2"><i class="fa-solid fa-pen"></i></button>`);
-                        html += `<div class="relative group"><div class="absolute -left-[33px] top-4 w-4 h-4 rounded-full bg-brand-dark ${isToday ? 'ring-4 ring-brand-accent/30 bg-brand-accent' : ''}"></div><div class="card p-4 ${isToday ? 'border-2 border-brand-accent' : ''}">${headerHtml}<h4 class="font-bold text-lg text-brand-dark mb-1">${displayStart} → ${displayEnd}</h4><div class="text-sm text-gray-600 mb-3 font-num font-medium">預估：${route.estKm} km</div><div class="flex gap-2 mt-3"><a href="${navLink}" target="_blank" class="flex-1 bg-brand-dark text-white py-2 rounded-lg text-xs font-bold text-center flex items-center justify-center"><i class="fa-solid fa-location-arrow mr-1"></i> 導航</a>${route.note ? `<button onclick="alert('${route.note}')" class="px-3 bg-gray-100 rounded-lg text-gray-600"><i class="fa-solid fa-message"></i></button>` : ''}</div></div></div>`;
+                        // Added Note Display
+                        html += `<div class="relative group"><div class="absolute -left-[33px] top-4 w-4 h-4 rounded-full bg-brand-dark ${isToday ? 'ring-4 ring-brand-accent/30 bg-brand-accent' : ''}"></div><div class="card p-4 ${isToday ? 'border-2 border-brand-accent' : ''}">${headerHtml}<h4 class="font-bold text-lg text-brand-dark mb-1">${displayStart} → ${displayEnd}</h4><div class="text-sm text-gray-600 mb-3 font-num font-medium">預估：${route.estKm} km</div><div class="flex gap-2 mt-3"><a href="${navLink}" target="_blank" class="flex-1 bg-brand-dark text-white py-2 rounded-lg text-xs font-bold text-center flex items-center justify-center"><i class="fa-solid fa-location-arrow mr-1"></i> 導航</a></div>${route.note ? `<div class="text-xs text-gray-500 bg-brand-light p-2 rounded mt-2">${route.note}</div>` : ''}</div></div>`;
                     });
                     html += '</div>';
                 }
@@ -392,11 +385,22 @@
             },
             openRouteModal(editId = null) {
                 const isEdit = editId !== null; let data = {}; if(isEdit) data = this.data.routes.find(r => r.id === editId);
-                const formHtml = `<div class="space-y-4"><div class="flex gap-2"><input type="number" id="route-day" class="input-field w-1/3 font-num" placeholder="Day" value="${data.dayNum || ''}"><input type="date" id="route-date" class="input-field w-2/3 font-num" value="${data.date || ''}"></div><div class="grid grid-cols-2 gap-3"><input type="text" id="route-start" class="input-field" placeholder="起點" value="${data.start || ''}"><input type="text" id="route-end" class="input-field" placeholder="終點" value="${data.end || ''}"></div><div class="relative"><input type="number" id="route-km" class="input-field pr-24 font-num" placeholder="預估 km" value="${data.estKm || ''}"><button onclick="MapPicker.open('route-km')" class="absolute right-2 top-2 text-white bg-brand-dark text-xs px-3 py-2 rounded-lg font-bold shadow-sm flex items-center gap-1"><i class="fa-solid fa-map"></i> 測距</button></div><input type="text" id="route-note" class="input-field" placeholder="備註" value="${data.note || ''}"><button onclick="App.submitRoute(${editId})" class="w-full bg-brand-dark text-white py-3 rounded-xl font-bold shadow-lg mt-2">${isEdit ? '更新' : '新增'}</button>${isEdit ? `<button onclick="App.deleteRoute(${editId})" class="w-full text-red-400 text-sm mt-3">刪除</button>` : ''}</div>`;
+                const formHtml = `<div class="space-y-4"><div class="flex gap-2"><input type="number" id="route-day" class="input-field w-1/3 font-num" placeholder="Day" value="${data.dayNum || ''}"><input type="date" id="route-date" class="input-field w-2/3 font-num" value="${data.date || ''}" onchange="App.autoCalcRouteDay(this.value)"></div><div class="grid grid-cols-2 gap-3"><input type="text" id="route-start" class="input-field" placeholder="起點" value="${data.start || ''}"><input type="text" id="route-end" class="input-field" placeholder="終點" value="${data.end || ''}"></div><div class="relative"><input type="number" id="route-km" class="input-field pr-24 font-num" placeholder="預估 km" value="${data.estKm || ''}"><button onclick="MapPicker.open('route-km')" class="absolute right-2 top-2 text-white bg-brand-dark text-xs px-3 py-2 rounded-lg font-bold shadow-sm flex items-center gap-1"><i class="fa-solid fa-map"></i> 測距</button></div><input type="text" id="route-note" class="input-field" placeholder="備註" value="${data.note || ''}"><button onclick="App.submitRoute(${editId})" class="w-full bg-brand-dark text-white py-3 rounded-xl font-bold shadow-lg mt-2">${isEdit ? '更新' : '新增'}</button>${isEdit ? `<button onclick="App.deleteRoute(${editId})" class="w-full text-red-400 text-sm mt-3">刪除</button>` : ''}</div>`;
                 this.showModal(isEdit ? '編輯規劃' : '新增規劃', formHtml);
+                if (!isEdit && !data.dayNum) {
+                    // Auto fill Day if creating new
+                    const today = new Date().toISOString().split('T')[0];
+                    // App.autoCalcRouteDay(today); // Optional: Pre-fill today
+                }
+            },
+            autoCalcRouteDay(dateStr) {
+                // Feature 3: Auto Day Calc for Route
+                const diff = this.getDayNumber(dateStr);
+                document.getElementById('route-day').value = diff;
             },
             submitRoute(editId) { const newRoute={id:editId||Date.now(),dayNum:document.getElementById('route-day').value,date:document.getElementById('route-date').value,start:document.getElementById('route-start').value,end:document.getElementById('route-end').value,estKm:document.getElementById('route-km').value,note:document.getElementById('route-note').value,coords:window.tempMapCoords||(editId?this.data.routes.find(r=>r.id===editId).coords:null)}; if(editId){const idx=this.data.routes.findIndex(r=>r.id===editId);this.data.routes[idx]=newRoute;}else{this.data.routes.push(newRoute);}window.tempMapCoords=null;this.saveData();this.closeModal();this.router('route'); },
             deleteRoute(id) { if(confirm('刪除?')) { this.data.routes = this.data.routes.filter(r => r.id !== id); this.saveData(); this.closeModal(); this.router('route'); }},
+
             renderStayView(container) { let html = ''; if (this.data.stays.length === 0) html += `<div class="text-center text-gray-400 mt-20">尚未紀錄住宿</div>`; else { this.data.stays.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(stay => { const dayNum = this.getDayNumber(stay.date); const headerHtml = Utils.renderCardHeader(dayNum, stay.date, `<button onclick="App.openStayModal(${stay.id})" class="text-gray-300 px-2"><i class="fa-solid fa-pen"></i></button>`); html += `<div class="card p-5 mb-4">${headerHtml}<div class="flex justify-between items-center mt-2"><h3 class="text-xl font-bold text-brand-dark">${stay.name}</h3><span class="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600">${stay.type}</span></div><div class="text-brand-accent font-bold my-2 font-num text-lg">$${stay.price}</div>${stay.contact ? `<div class="text-sm text-gray-600 mb-1"><i class="fa-solid fa-phone w-5"></i> <a href="tel:${stay.contact}" class="underline">${stay.contact}</a></div>` : ''}${stay.note ? `<div class="text-xs text-gray-500 bg-brand-light p-2 rounded mt-2">${stay.note}</div>` : ''}${stay.mapLink ? `<a href="${stay.mapLink}" target="_blank" class="mt-2 block text-center bg-blue-50 py-2 rounded-lg text-sm font-bold text-blue-600 hover:bg-blue-100"><i class="fa-solid fa-map-location-dot"></i> 開啟地圖</a>` : ''}</div>`; }); } container.innerHTML = html; this.addFab(container, 'fa-bed', () => this.openStayModal()); },
             openStayModal(editId = null) { const isEdit = editId !== null; let data = {}; if(isEdit) data = this.data.stays.find(s => s.id === editId); const formHtml = `<div class="space-y-4"><input type="date" id="stay-date" class="input-field font-num" value="${data.date || ''}"><input type="text" id="stay-name" class="input-field" placeholder="住宿名稱" value="${data.name || ''}"><div class="grid grid-cols-2 gap-3"><select id="stay-type" class="input-field">${['民宿','青旅','旅館','借宿','野宿'].map(t => `<option value="${t}" ${data.type===t?'selected':''}>${t}</option>`).join('')}</select><input type="number" id="stay-price" class="input-field font-num" placeholder="價格" inputmode="numeric" value="${data.price || ''}"></div><input type="tel" id="stay-contact" class="input-field font-num" placeholder="電話" value="${data.contact || ''}"><div class="text-[10px] text-gray-500 bg-gray-50 p-2 rounded">備註：請手動貼上 Google Maps 分享連結 (無法自動帶入資料)。</div><input type="text" id="stay-map" class="input-field" placeholder="Google Map 分享連結" value="${data.mapLink || ''}"><input type="text" id="stay-note" class="input-field" placeholder="備註 (插座、洗衣機...)" value="${data.note || ''}"><button onclick="App.submitStay(${editId})" class="w-full bg-brand-dark text-white py-3 rounded-xl font-bold shadow-lg mt-2">${isEdit ? '更新' : '儲存'}</button>${isEdit ? `<button onclick="App.deleteStay(${editId})" class="w-full text-red-400 text-sm mt-3">刪除</button>` : ''}</div>`; this.showModal(isEdit?'編輯住宿':'新增住宿', formHtml); },
             submitStay(editId) { const newStay = { id: editId || Date.now(), date: document.getElementById('stay-date').value, name: document.getElementById('stay-name').value, type: document.getElementById('stay-type').value, price: document.getElementById('stay-price').value, contact: document.getElementById('stay-contact').value, mapLink: document.getElementById('stay-map').value, note: document.getElementById('stay-note').value }; if(editId) { const idx = this.data.stays.findIndex(s => s.id === editId); this.data.stays[idx] = newStay; } else { this.data.stays.push(newStay); } this.saveData(); this.closeModal(); this.router('stay'); },
@@ -431,11 +435,6 @@
             closeModal() { document.getElementById('modal').classList.add('hidden'); },
             closeMapModal() { document.getElementById('map-modal').classList.add('hidden'); },
             closeImportModal() { document.getElementById('import-modal').classList.add('hidden'); },
-            openImportRouteModal() { if (this.data.routes.length === 0) return alert('無規劃路線'); document.getElementById('import-modal').classList.remove('hidden'); const list = document.getElementById('import-list'); list.innerHTML = ''; this.data.routes.forEach(r => { 
-                const displayStart = Utils.extractCityDistrict(r.start) || r.start; const displayEnd = Utils.extractCityDistrict(r.end) || r.end;
-                list.innerHTML += `<div onclick="App.fillLogFromRoute(${r.id})" class="p-3 border rounded-lg hover:bg-brand-light cursor-pointer transition"><div class="flex justify-between font-bold text-sm text-brand-dark"><span>${displayStart} → ${displayEnd}</span> <span>${r.estKm} km</span></div><div class="text-xs text-gray-400 mt-1">${Utils.formatDate(r.date)} (Day ${r.dayNum})</div></div>`; 
-            }); },
-            fillLogFromRoute(rid) { const r = this.data.routes.find(x => x.id === rid); if(r) { document.getElementById('log-start').value = r.start; document.getElementById('log-end').value = r.end; document.getElementById('log-km').value = r.estKm; document.getElementById('log-note').value = r.note || ''; if(r.coords) window.tempMapCoords = r.coords; } this.closeImportModal(); },
             addExpenseRow(name = '', price = '') { const div = document.createElement('div'); div.className = 'flex gap-2 expense-row'; div.innerHTML = `<input type="text" class="input-field py-1 text-sm flex-[2] ex-name" placeholder="項目" value="${name}"><input type="number" class="input-field py-1 text-sm flex-1 ex-price" placeholder="$" value="${price}"><button onclick="this.parentElement.remove()" class="text-gray-400 px-1"><i class="fa-solid fa-xmark"></i></button>`; document.getElementById('expense-container').appendChild(div); },
             deleteLog(id) { if(confirm('刪除?')) { this.data.logs = this.data.logs.filter(l => l.id !== id); this.saveData(); this.closeModal(); this.router('log'); }}
         };

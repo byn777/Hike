@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>徒步環島紀錄 v20</title>
+    <title>徒步環島紀錄 v21</title>
     
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
@@ -59,6 +59,13 @@
         <div id="total-stats" class="text-xs font-bold font-num text-brand-earth bg-brand-light px-3 py-1 rounded-full border border-brand-earth/20">Loading...</div>
     </header>
 
+    <!-- Emergency Reset Button (Visible if JS crashes) -->
+    <div id="loading-fallback" class="fixed inset-0 z-[50] flex flex-col items-center justify-center bg-white p-6 text-center" style="display: flex;">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-dark mb-4"></div>
+        <p class="mb-4 text-gray-500">正在載入 App...</p>
+        <button onclick="localStorage.clear(); location.reload();" class="text-red-400 text-sm underline mt-10">如果卡住太久，點此重置資料</button>
+    </div>
+
     <!-- Error Screen -->
     <div id="error-screen" class="hidden fixed inset-0 z-[100] bg-white flex flex-col items-center justify-center p-10 text-center">
         <i class="fa-solid fa-triangle-exclamation text-5xl text-red-500 mb-4"></i>
@@ -79,7 +86,7 @@
         <button onclick="App.router('stats')" class="nav-item flex flex-col items-center justify-center w-full h-full" id="nav-stats"><i class="fa-solid fa-chart-pie text-xl mb-1"></i><span class="text-[10px] font-medium">統計</span></button>
     </nav>
 
-    <!-- Unified Modal (Sticky Footer) -->
+    <!-- Modal System -->
     <div id="modal" class="fixed inset-0 bg-black bg-opacity-60 hidden z-[70] flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden">
             <div class="flex justify-between items-center px-5 py-4 flex-none border-b bg-gray-50">
@@ -130,7 +137,12 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
-        window.onerror = function(message, source, lineno, colno, error) { document.getElementById('error-screen').classList.remove('hidden'); document.getElementById('error-msg').innerText = message + " (Line: " + lineno + ")"; };
+        // --- 1. Global Error Handling ---
+        window.onerror = function(message, source, lineno, colno, error) { 
+            document.getElementById('loading-fallback').style.display = 'none'; // Hide loading
+            document.getElementById('error-screen').classList.remove('hidden'); 
+            document.getElementById('error-msg').innerText = message + " (Line: " + lineno + ")"; 
+        };
 
         const Utils = {
             weekDays: ['週日', '週一', '週二', '週三', '週四', '週五', '週六'],
@@ -166,22 +178,45 @@
             currentView: 'log', firstDate: null, 
             logMode: 'list', calendarDate: new Date(),
 
-            init() { try { this.loadData(); this.router('log'); if(this.data.gears.length === 0) this.seedGearData(); window.App = this; window.MapPicker = MapPicker; } catch(e) { throw new Error("Init Failed: " + e.message); } },
+            init() { 
+                try { 
+                    this.loadData(); 
+                    this.router('log'); 
+                    // Hide loading after init success
+                    document.getElementById('loading-fallback').style.display = 'none';
+                    if(this.data.gears.length === 0) this.seedGearData(); 
+                    window.App = this; window.MapPicker = MapPicker; 
+                } catch(e) { 
+                    throw new Error("Init Failed: " + e.message); 
+                } 
+            },
+            
+            // --- 2. Robust Data Loading ---
             loadData() { 
-                const stored = localStorage.getItem('island_walker_v20_db'); 
-                if (stored) { 
-                    this.data = JSON.parse(stored); 
-                } else if (localStorage.getItem('island_walker_v19_db')) { 
-                    const v = JSON.parse(localStorage.getItem('island_walker_v19_db'));
-                    this.data = { ...v, targetKm: 1200 };
-                    this.saveData(); 
-                } else if (localStorage.getItem('island_walker_v16_db')) {
-                    const v = JSON.parse(localStorage.getItem('island_walker_v16_db'));
-                    this.data = { ...v, targetKm: 1200 };
-                    this.saveData();
+                try {
+                    const stored = localStorage.getItem('island_walker_v21_db'); 
+                    if (stored) { 
+                        this.data = JSON.parse(stored); 
+                    } else if (localStorage.getItem('island_walker_v20_db')) { 
+                        const v = JSON.parse(localStorage.getItem('island_walker_v20_db'));
+                        this.data = { ...v, targetKm: 1200 };
+                        this.saveData(); 
+                    } else if (localStorage.getItem('island_walker_v16_db')) {
+                        const v = JSON.parse(localStorage.getItem('island_walker_v16_db'));
+                        this.data = { ...v, targetKm: 1200 };
+                        this.saveData();
+                    }
+                    // Ensure arrays exist
+                    if(!this.data.logs) this.data.logs = [];
+                    if(!this.data.routes) this.data.routes = [];
+                    if(!this.data.stays) this.data.stays = [];
+                    if(!this.data.gears) this.data.gears = [];
+                } catch(e) {
+                    console.error("Data Corrupted", e);
+                    // Critical error will be caught by window.onerror
                 }
             },
-            saveData() { localStorage.setItem('island_walker_v20_db', JSON.stringify(this.data)); this.calculateFirstDate(); this.updateGlobalStats(); },
+            saveData() { localStorage.setItem('island_walker_v21_db', JSON.stringify(this.data)); this.calculateFirstDate(); this.updateGlobalStats(); },
             calculateFirstDate() { 
                 const dates = [];
                 if (this.data.logs.length) dates.push(...this.data.logs.map(l => new Date(l.date)));
@@ -339,10 +374,10 @@
                 if(data.expenses && data.expenses.length > 0) data.expenses.forEach(e => this.addExpenseRow(e.name, e.price));
                 else this.addExpenseRow();
                 
+                // Feature 4: Auto check route if new log
                 if (!isEdit) this.checkRouteForDate(dateValue);
             },
 
-            // Feature 1: Auto-fill logic
             checkRouteForDate(dateStr) {
                 const route = this.data.routes.find(r => r.date === dateStr);
                 const startEl = document.getElementById('log-start');
@@ -371,13 +406,13 @@
                 window.tempMapCoords = null; this.saveData(); this.closeModal(); this.router('log');
             },
 
-            // --- Route View (Feature 1: Re-sort Newest Top & Feature 2: Smart Start) ---
+            // --- Route View (Sort Newest First) ---
             renderRouteView(container) {
                 let html = `<a href="https://www.google.com/maps" target="_blank" class="flex items-center justify-center bg-white text-brand-dark py-3 rounded-xl mb-6 shadow-sm border border-gray-100 font-bold"><i class="fa-brands fa-google text-lg mr-2 text-red-500"></i> 開啟 Google Maps</a>`;
                 if (this.data.routes.length === 0) html += `<div class="text-center text-gray-400 mt-10">尚未規劃路線</div>`;
                 else {
                     html += '<div class="relative border-l-2 border-brand-earth/30 ml-4 pl-6 py-2 space-y-6">';
-                    // Sort: Newest First
+                    // Feature 1: Sort by date descending
                     this.data.routes.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(route => {
                         const isToday = route.date === new Date().toISOString().split('T')[0];
                         let navLink = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(route.start)}&destination=${encodeURIComponent(route.end)}&travelmode=walking`;
@@ -398,23 +433,17 @@
                 let data = {};
                 if(isEdit) data = this.data.routes.find(r => r.id === editId);
                 
-                // Smart Start Logic (New Route)
+                // Feature 2: Smart Start (Auto fill next day's start point)
                 if (!isEdit && this.data.routes.length > 0) {
-                    // Find latest date in existing routes
                     const sortedRoutes = [...this.data.routes].sort((a,b) => new Date(b.date) - new Date(a.date));
                     const lastRoute = sortedRoutes[0];
                     const lastDate = new Date(lastRoute.date);
                     const nextDate = new Date(lastDate);
                     nextDate.setDate(lastDate.getDate() + 1);
                     data.date = nextDate.toISOString().split('T')[0];
-                    
-                    // Find Stay for the last route's date (where we slept)
+                    // Check if we stayed somewhere
                     const prevStay = this.data.stays.find(s => s.date === lastRoute.date);
-                    if(prevStay) {
-                        data.start = prevStay.name; // Auto-fill start
-                    } else {
-                        data.start = lastRoute.end; // Fallback to last end
-                    }
+                    data.start = prevStay ? prevStay.name : lastRoute.end;
                 }
 
                 const bodyHtml = `<div class="space-y-4"><div class="flex gap-2"><input type="number" id="route-day" class="input-field w-1/3 font-num" placeholder="Day" value="${data.dayNum || ''}"><input type="date" id="route-date" class="input-field w-2/3 font-num" value="${data.date || ''}" onchange="App.autoCalcRouteDay(this.value)"></div><div class="grid grid-cols-2 gap-3"><input type="text" id="route-start" class="input-field" placeholder="起點" value="${data.start || ''}"><input type="text" id="route-end" class="input-field" placeholder="終點" value="${data.end || ''}"></div><div class="relative"><input type="number" id="route-km" class="input-field pr-24 font-num" placeholder="預估 km" value="${data.estKm || ''}"><button onclick="MapPicker.open('route-km')" class="absolute right-2 top-2 text-white bg-brand-dark text-xs px-3 py-2 rounded-lg font-bold shadow-sm flex items-center gap-1"><i class="fa-solid fa-map"></i> 測距</button></div><input type="text" id="route-note" class="input-field" placeholder="備註" value="${data.note || ''}"></div>`;
@@ -441,42 +470,4 @@
             seedGearData() { 
                 this.data.gears = [
                     {id:1,cat:'clothing',name:'登山鞋/健行鞋',checked:false}, {id:2,cat:'clothing',name:'運動鞋（備用）',checked:true}, {id:3,cat:'clothing',name:'拖鞋',checked:true}, {id:4,cat:'clothing',name:'排汗衣 x2',checked:false}, {id:5,cat:'clothing',name:'發熱衣 x2',checked:true}, {id:6,cat:'clothing',name:'長袖排汗衣 x2',checked:true}, {id:7,cat:'clothing',name:'長褲排汗褲 x2',checked:true}, {id:8,cat:'clothing',name:'長運動束褲 x2',checked:true}, {id:9,cat:'clothing',name:'短褲(睡褲)',checked:true}, {id:10,cat:'clothing',name:'內衣褲 x2',checked:false}, {id:11,cat:'clothing',name:'五指襪 x3',checked:true}, {id:12,cat:'clothing',name:'厚長襪 x1',checked:true}, {id:13,cat:'clothing',name:'羽絨外套',checked:false}, {id:14,cat:'clothing',name:'防風外套',checked:true}, {id:15,cat:'clothing',name:'漁夫帽/頭巾',checked:true}, {id:16,cat:'clothing',name:'毛線帽',checked:false}, {id:17,cat:'clothing',name:'圍巾',checked:true}, {id:18,cat:'clothing',name:'袖套',checked:false}, {id:19,cat:'clothing',name:'太陽眼鏡',checked:false},
-                    {id:20,cat:'rain',name:'輕便/兩截式雨衣',checked:true}, {id:21,cat:'rain',name:'摺疊雨傘',checked:true}, {id:22,cat:'rain',name:'背包防水套',checked:true}, {id:23,cat:'rain',name:'防水袋',checked:false}, {id:24,cat:'rain',name:'鞋套',checked:false},
-                    {id:25,cat:'sleep',name:'帳篷',checked:false}, {id:26,cat:'sleep',name:'睡袋',checked:false}, {id:27,cat:'sleep',name:'睡墊',checked:false}, {id:28,cat:'sleep',name:'枕頭',checked:false},
-                    {id:30,cat:'elec',name:'手機',checked:true}, {id:31,cat:'elec',name:'延長線',checked:false}, {id:32,cat:'elec',name:'行動電源 x2',checked:true}, {id:33,cat:'elec',name:'充電器/插座',checked:false}, {id:34,cat:'elec',name:'頭燈/手電筒',checked:true}, {id:35,cat:'elec',name:'手錶(GPS)',checked:true}, {id:36,cat:'elec',name:'耳機',checked:true}, {id:37,cat:'elec',name:'相機',checked:false}, {id:38,cat:'elec',name:'警示燈',checked:true},
-                    {id:40,cat:'clean',name:'牙刷牙膏',checked:true}, {id:41,cat:'clean',name:'快乾毛巾',checked:true}, {id:42,cat:'clean',name:'肥皂/沐浴乳',checked:true}, {id:43,cat:'clean',name:'洗面乳',checked:false}, {id:44,cat:'clean',name:'衛生紙',checked:true}, {id:45,cat:'clean',name:'濕紙巾',checked:false}, {id:46,cat:'clean',name:'防曬乳',checked:false}, {id:47,cat:'clean',name:'髒衣袋',checked:false}, {id:48,cat:'clean',name:'刮鬍刀',checked:true}, {id:49,cat:'clean',name:'指甲剪',checked:true},
-                    {id:50,cat:'med',name:'個人藥品',checked:false}, {id:51,cat:'med',name:'酒精/乾洗手',checked:false}, {id:52,cat:'med',name:'止痛藥',checked:true}, {id:53,cat:'med',name:'腸胃藥',checked:false}, {id:54,cat:'med',name:'感冒藥',checked:false}, {id:55,cat:'med',name:'小護士藥膏',checked:false}, {id:56,cat:'med',name:'凡士林',checked:true}, {id:57,cat:'med',name:'痠痛貼布',checked:false}, {id:58,cat:'med',name:'OK繃/水泡貼',checked:true}, {id:59,cat:'med',name:'彈性繃帶',checked:false}, {id:60,cat:'med',name:'護膝',checked:false}, {id:61,cat:'med',name:'針線',checked:true},
-                    {id:70,cat:'id',name:'身分證',checked:true}, {id:71,cat:'id',name:'健保卡',checked:true}, {id:72,cat:'id',name:'現金/信用卡',checked:true}, {id:73,cat:'id',name:'悠遊卡',checked:false}, {id:74,cat:'id',name:'保險單影本',checked:false}, {id:75,cat:'id',name:'緊急聯絡資訊',checked:false}, {id:76,cat:'id',name:'筆記本/筆',checked:false},
-                    {id:80,cat:'food',name:'保溫瓶/水袋',checked:true}, {id:81,cat:'food',name:'能量棒',checked:false}, {id:82,cat:'food',name:'鹽糖',checked:false}, {id:83,cat:'food',name:'泡麵/即食',checked:false}, {id:84,cat:'food',name:'水果',checked:false},
-                    {id:90,cat:'other',name:'登山背包(40L)',checked:true}, {id:91,cat:'other',name:'曬衣夾',checked:true}, {id:92,cat:'other',name:'洗衣袋',checked:true}, {id:93,cat:'other',name:'腰包',checked:false}, {id:94,cat:'other',name:'登山杖',checked:true}, {id:95,cat:'other',name:'塑膠袋/垃圾袋',checked:false}, {id:96,cat:'other',name:'環保餐具',checked:true}, {id:97,cat:'other',name:'瑞士刀',checked:false}, {id:98,cat:'other',name:'打火機',checked:false}, {id:99,cat:'other',name:'防蚊液',checked:false}, {id:100,cat:'other',name:'口罩',checked:false}, {id:101,cat:'other',name:'哨子',checked:false}, {id:102,cat:'other',name:'地圖',checked:false}, {id:103,cat:'other',name:'束線帶',checked:false}
-                ];
-                this.saveData(); 
-            },
-
-            // Stats View
-            renderStatsView(container) {
-                const totalKm = this.data.logs.reduce((acc, c) => acc + Number(c.km||0), 0);
-                const progress = Math.min((totalKm / this.data.targetKm) * 100, 100).toFixed(1);
-                let stayTotal = 0, foodTotal = 0;
-                this.data.logs.forEach(l => { stayTotal += this.getStayCostByDate(l.date); if(l.expenses) { l.expenses.forEach(e => foodTotal += Number(e.price)); } else if(l.otherCost) foodTotal += Number(l.otherCost); });
-                const totalCost = stayTotal + foodTotal;
-                container.innerHTML = `<div class="space-y-6 animate-[fadeIn_0.3s]"><div class="card p-5 bg-gradient-to-br from-brand-dark to-[#1a4036] text-white relative overflow-hidden"><i class="fa-solid fa-person-hiking absolute -right-4 -bottom-4 text-8xl text-white opacity-10"></i><div class="flex justify-between items-end mb-2"><div><h3 class="text-sm opacity-80">環島進度</h3><div class="text-3xl font-bold font-num">${totalKm.toFixed(1)} <span class="text-sm">km</span></div></div><div class="text-right"><div class="text-sm opacity-80">目標</div><div class="text-xl font-bold font-num cursor-pointer" onclick="App.editTarget()">${this.data.targetKm} <i class="fa-solid fa-pen text-xs opacity-50"></i></div></div></div><div class="w-full bg-white/20 rounded-full h-3 mb-1"><div class="bg-brand-accent h-3 rounded-full transition-all duration-1000" style="width: ${progress}%"></div></div><div class="text-right text-xs font-bold">${progress}% 完成</div></div><div class="card p-5"><h3 class="font-bold text-brand-dark mb-4 border-b pb-2">花費分析 ($${totalCost})</h3><div class="h-48 relative"><canvas id="expenseChart"></canvas></div></div><div class="card p-5"><h3 class="font-bold text-gray-500 mb-3 border-b pb-2">資料管理</h3><div class="grid grid-cols-2 gap-3"><button onclick="App.exportData()" class="bg-blue-50 text-blue-600 py-3 rounded-xl font-bold text-sm"><i class="fa-solid fa-download mb-1 block text-lg"></i> 備份/匯出</button><button onclick="document.getElementById('import-file').click()" class="bg-green-50 text-green-600 py-3 rounded-xl font-bold text-sm"><i class="fa-solid fa-upload mb-1 block text-lg"></i> 還原/匯入</button><input type="file" id="import-file" class="hidden" accept=".json" onchange="App.importData(this)"></div></div></div>`;
-                setTimeout(() => { const ctx = document.getElementById('expenseChart'); if(ctx) { new Chart(ctx, { type: 'doughnut', data: { labels: ['住宿', '飲食/雜支'], datasets: [{ data: [stayTotal, foodTotal], backgroundColor: ['#2C5E50', '#E76F51'], borderWidth: 0 }] }, options: { maintainAspectRatio: false, plugins: { legend: { position: 'right' } } } }); } }, 100);
-            },
-            editTarget() { const newT = prompt('設定目標公里數', this.data.targetKm); if(newT && !isNaN(newT)) { this.data.targetKm = Number(newT); this.saveData(); this.router('stats'); } },
-            exportData() { const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(this.data)); const downloadAnchorNode = document.createElement('a'); downloadAnchorNode.setAttribute("href", dataStr); const date = new Date().toISOString().split('T')[0]; downloadAnchorNode.setAttribute("download", "island_walker_backup_" + date + ".json"); document.body.appendChild(downloadAnchorNode); downloadAnchorNode.click(); downloadAnchorNode.remove(); },
-            importData(input) { const file = input.files[0]; if(!file) return; const reader = new FileReader(); reader.onload = function(e) { try { const imported = JSON.parse(e.target.result); if(confirm('確定要覆蓋目前的資料嗎？')) { App.data = imported; App.saveData(); alert('資料還原成功！'); location.reload(); } } catch(err) { alert('檔案格式錯誤'); } }; reader.readAsText(file); },
-            showModal(title, body, footer) { document.getElementById('modal-title').innerText = title; document.getElementById('modal-content').innerHTML = body; const footerEl = document.getElementById('modal-footer'); if (footer) { footerEl.innerHTML = footer; footerEl.classList.remove('hidden'); } else { footerEl.classList.add('hidden'); } document.getElementById('modal').classList.remove('hidden'); },
-            closeModal() { document.getElementById('modal').classList.add('hidden'); },
-            closeMapModal() { document.getElementById('map-modal').classList.add('hidden'); },
-            closeImportModal() { document.getElementById('import-modal').classList.add('hidden'); },
-            addExpenseRow(name = '', price = '') { const div = document.createElement('div'); div.className = 'flex gap-2 expense-row'; div.innerHTML = `<input type="text" class="input-field py-1 text-sm flex-[2] ex-name" placeholder="項目" value="${name}"><input type="number" class="input-field py-1 text-sm flex-1 ex-price" placeholder="$" value="${price}"><button onclick="this.parentElement.remove()" class="text-gray-400 px-1"><i class="fa-solid fa-xmark"></i></button>`; document.getElementById('expense-container').appendChild(div); },
-            deleteLog(id) { if(confirm('刪除?')) { this.data.logs = this.data.logs.filter(l => l.id !== id); this.saveData(); this.closeModal(); this.router('log'); }}
-        };
-
-        document.addEventListener('DOMContentLoaded', () => { App.init(); });
-    </script>
-</body>
-</html>
-
-
+                    {id:20,cat:'rain',name:'輕便/兩截式雨衣',checked:true}, {id:21,cat:'rain',name:'摺疊雨傘',checked:true}, {id:22,cat:'rain',name:'背包防水套',checked:true}, {id:23,cat:'rain',name:'防水袋',checked:fals

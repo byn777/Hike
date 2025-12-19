@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>徒步環島紀錄 v23</title>
+    <title>徒步環島紀錄 v18</title>
     
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
@@ -49,6 +49,7 @@
         #map-picker-container { height: 100%; width: 100%; z-index: 10; }
         .custom-pin { text-align: center; }
         .pin-number { background: #2C5E50; color: white; border-radius: 50%; width: 24px; height: 24px; font-size: 14px; line-height: 24px; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); font-weight: bold; }
+        /* Calendar Styles v16 */
         .cal-cell { min-height: 80px; border-radius: 8px; font-size: 12px; position: relative; cursor: pointer; transition: 0.1s; border: 1px solid #f3f4f6; display: flex; flex-direction: column; padding: 2px; align-items: center; justify-content: flex-start; overflow: hidden; }
         .cal-cell:active { transform: scale(0.98); background: #f3f4f6; }
         .cal-today { border: 2px solid #2C5E50; }
@@ -179,7 +180,7 @@
             addStopInput(placeholder = '途經點') { const id = Date.now() + Math.random(); const stop = { id, text: '', coords: null, marker: null }; this.stops.push(stop); this.renderStopList(); },
             removeStop(id) { if(this.stops.length <= 2) return alert('至少需要起點和終點'); const idx = this.stops.findIndex(s => s.id === id); if(this.stops[idx].marker) this.map.removeLayer(this.stops[idx].marker); this.stops = this.stops.filter(s => s.id !== id); this.renderStopList(); this.cleanMapLayers(); },
             renderStopList() { const container = document.getElementById('stops-list'); container.innerHTML = ''; this.stops.forEach((stop, index) => { const isStart = index === 0; const isEnd = index === this.stops.length - 1; const label = isStart ? '起' : isEnd ? '終' : (index); const colorClass = isStart ? 'bg-brand-dark' : isEnd ? 'bg-brand-accent' : 'bg-gray-400'; const div = document.createElement('div'); div.className = 'flex items-center gap-2 animate-[fadeIn_0.2s]'; div.innerHTML = `<div class="flex-none w-6 h-6 rounded-full ${colorClass} text-white text-xs font-bold flex items-center justify-center">${label}</div><input type="text" class="flex-1 bg-gray-100 rounded-lg px-3 py-2 text-sm border border-transparent focus:bg-white focus:border-brand-dark outline-none transition" placeholder="${isStart?'輸入地址...':isEnd?'輸入地址...':'輸入途經點...'}" value="${stop.text}">${this.stops.length > 2 ? `<button onclick="MapPicker.removeStop(${stop.id})" class="text-gray-300 hover:text-red-400 px-1"><i class="fa-solid fa-xmark"></i></button>` : ''}`; div.querySelector('input').addEventListener('input', (e) => stop.text = e.target.value); container.appendChild(div); }); },
-            async processInputs() { const inputs = this.stops.filter(s => s.text.trim() !== ''); if (inputs.length < 2) return alert('請至少輸入起點和終點'); document.getElementById('map-result-text').innerText = '定位中...'; this.stops.forEach(s => { if(s.marker) this.map.removeLayer(s.marker); }); for (let i = 0; i < inputs.length; i++) { const stop = inputs[i]; try { const coords = await this.smartGeocode(stop.text); if (coords) { stop.coords = coords; this.addMarker(stop, i); } else { alert(`找不到: ${stop.text} (建議輸入完整地址)`); document.getElementById('map-result-text').innerText = '定位失敗'; return; } await new Promise(r => setTimeout(r, 600)); } catch (e) { alert('網路錯誤'); return; } } this.calculateRoute(); },
+            async processInputs() { const inputs = this.stops.filter(s => s.text.trim() !== ''); if (inputs.length < 2) return alert('請至少輸入起點和終點'); document.getElementById('map-result-text').innerText = '定位中...'; this.stops.forEach(s => { if(s.marker) this.map.removeLayer(s.marker); }); for (let i = 0; i < inputs.length; i++) { const stop = inputs[i]; try { const coords = await this.smartGeocode(stop.text); if (coords) { stop.coords = coords; this.addMarker(stop, i); } else { alert(`找不到: ${stop.text}`); document.getElementById('map-result-text').innerText = '定位失敗'; return; } await new Promise(r => setTimeout(r, 600)); } catch (e) { alert('網路錯誤'); return; } } this.calculateRoute(); },
             async smartGeocode(query) { let res = await this.geocode(query); if (res) return res; const noZip = query.replace(/^\d{3,5}/, '').trim(); if (noZip !== query) { res = await this.geocode(noZip); if (res) return res; } const noDetail = noZip.replace(/[\d]+[之\-]\d+號?|[\d]+[號樓Ff].*$/, '').trim(); if (noDetail !== noZip && noDetail.length > 3) { res = await this.geocode(noDetail); if (res) return res; } return null; },
             async geocode(query) { try { const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`; const res = await fetch(url); const data = await res.json(); if (data && data.length > 0) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }; } catch(e) { return null; } return null; },
             addMarker(stop, index) { const label = (index + 1).toString(); const html = `<div class="pin-number">${label}</div>`; const icon = L.divIcon({ className: 'custom-pin', html: html, iconSize: [24, 24] }); const marker = L.marker([stop.coords.lat, stop.coords.lng], { icon: icon, draggable: true }).addTo(this.map); marker.on('dragend', (e) => { stop.coords = e.target.getLatLng(); this.calculateRoute(); }); stop.marker = marker; },
@@ -196,44 +197,22 @@
 
             init() { try { this.loadData(); this.router('log'); if(this.data.gears.length === 0) this.seedGearData(); window.App = this; window.MapPicker = MapPicker; } catch(e) { throw new Error("Init Failed: " + e.message); } },
             loadData() { 
-                const stored = localStorage.getItem('island_walker_v23_db'); 
+                const stored = localStorage.getItem('island_walker_v18_db'); 
                 if (stored) { 
                     this.data = JSON.parse(stored); 
-                } else if (localStorage.getItem('island_walker_v18_db')) { 
-                    const v = JSON.parse(localStorage.getItem('island_walker_v18_db'));
+                } else if (localStorage.getItem('island_walker_v17_db')) { 
+                    const v = JSON.parse(localStorage.getItem('island_walker_v17_db'));
                     this.data = { ...v, targetKm: 1200 };
                     this.saveData(); 
-                }
-                // Ensure arrays
-                if(!this.data.logs) this.data.logs = [];
-                if(!this.data.routes) this.data.routes = [];
-                if(!this.data.stays) this.data.stays = [];
-                if(!this.data.gears) this.data.gears = [];
-            },
-            saveData() { localStorage.setItem('island_walker_v23_db', JSON.stringify(this.data)); this.calculateFirstDate(); this.updateGlobalStats(); },
-            
-            // Feature 1: Universal Day 1 (Scans all DBs)
-            calculateFirstDate() { 
-                const dates = [];
-                if (this.data.logs.length) dates.push(...this.data.logs.map(l => new Date(l.date)));
-                if (this.data.routes.length) dates.push(...this.data.routes.map(r => new Date(r.date)));
-                if (this.data.stays.length) dates.push(...this.data.stays.map(s => new Date(s.date)));
-                
-                if (dates.length > 0) {
-                    const sorted = dates.sort((a,b) => a - b);
-                    this.firstDate = sorted[0];
-                } else {
-                    this.firstDate = null;
+                } else if (localStorage.getItem('island_walker_v16_db')) {
+                    const v = JSON.parse(localStorage.getItem('island_walker_v16_db'));
+                    this.data = { ...v, targetKm: 1200 };
+                    this.saveData();
                 }
             },
-            getDayNumber(dateStr) { 
-                if (!this.firstDate) return 1; 
-                const start = Utils.getMidnight(this.firstDate); 
-                const current = Utils.getMidnight(dateStr); 
-                const diffTime = current - start; 
-                const dayDiff = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
-                return dayDiff > 0 ? dayDiff : 1; 
-            },
+            saveData() { localStorage.setItem('island_walker_v18_db', JSON.stringify(this.data)); this.calculateFirstDate(); this.updateGlobalStats(); },
+            calculateFirstDate() { if (this.data.logs.length > 0) { const sorted = [...this.data.logs].sort((a,b) => new Date(a.date) - new Date(b.date)); this.firstDate = sorted[0].date; } else { this.firstDate = null; } },
+            getDayNumber(dateStr) { if (!this.firstDate) return 1; const start = Utils.getMidnight(this.firstDate); const current = Utils.getMidnight(dateStr); const diffTime = current - start; return Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1; },
             updateGlobalStats() { const totalKm = this.data.logs.reduce((acc, curr) => acc + Number(curr.km || 0), 0); const today = new Date().toISOString().split('T')[0]; const dayText = this.firstDate ? `Day ${this.getDayNumber(today)}` : '未開始'; const el = document.getElementById('total-stats'); if(el) el.innerText = `${dayText} • 累積 ${totalKm.toFixed(1)} km`; },
             
             router(view) {
@@ -250,13 +229,88 @@
                 this.updateGlobalStats();
             },
 
-            showModal(title, body, footer) { document.getElementById('modal-title').innerText = title; document.getElementById('modal-content').innerHTML = body; document.getElementById('modal').classList.remove('hidden'); },
-            closeModal() { document.getElementById('modal').classList.add('hidden'); },
-            closeMapModal() { document.getElementById('map-modal').classList.add('hidden'); },
-            closeImportModal() { document.getElementById('import-modal').classList.add('hidden'); },
+            renderStatsView(container) {
+                const totalKm = this.data.logs.reduce((acc, c) => acc + Number(c.km||0), 0);
+                const progress = Math.min((totalKm / this.data.targetKm) * 100, 100).toFixed(1);
+                let stayTotal = 0, foodTotal = 0;
+                this.data.logs.forEach(l => { stayTotal += this.getStayCostByDate(l.date); if(l.expenses) { l.expenses.forEach(e => foodTotal += Number(e.price)); } else if(l.otherCost) foodTotal += Number(l.otherCost); });
+                const totalCost = stayTotal + foodTotal;
+                
+                container.innerHTML = `
+                    <div class="space-y-6 animate-[fadeIn_0.3s]">
+                        <div class="card p-5 bg-gradient-to-br from-brand-dark to-[#1a4036] text-white relative overflow-hidden">
+                            <i class="fa-solid fa-person-hiking absolute -right-4 -bottom-4 text-8xl text-white opacity-10"></i>
+                            <div class="flex justify-between items-end mb-2">
+                                <div><h3 class="text-sm opacity-80">環島進度</h3><div class="text-3xl font-bold font-num">${totalKm.toFixed(1)} <span class="text-sm">km</span></div></div>
+                                <div class="text-right"><div class="text-sm opacity-80">目標</div><div class="text-xl font-bold font-num cursor-pointer" onclick="App.editTarget()">${this.data.targetKm} <i class="fa-solid fa-pen text-xs opacity-50"></i></div></div>
+                            </div>
+                            <div class="w-full bg-white/20 rounded-full h-3 mb-1"><div class="bg-brand-accent h-3 rounded-full transition-all duration-1000" style="width: ${progress}%"></div></div>
+                            <div class="text-right text-xs font-bold">${progress}% 完成</div>
+                            <button onclick="App.createShareCard('${totalKm.toFixed(1)}', '${this.getDayNumber(new Date().toISOString().split('T')[0])}', '${progress}')" class="mt-4 w-full bg-white/20 hover:bg-white/30 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-share-nodes"></i> 下載分享卡片
+                            </button>
+                        </div>
+                        <div class="card p-5">
+                            <h3 class="font-bold text-brand-dark mb-4 border-b pb-2">花費分析 ($${totalCost})</h3>
+                            <div class="h-48 relative"><canvas id="expenseChart"></canvas></div>
+                        </div>
+                        <div class="card p-5">
+                            <h3 class="font-bold text-gray-500 mb-3 border-b pb-2">資料管理</h3>
+                            <div class="grid grid-cols-2 gap-3">
+                                <button onclick="App.exportData()" class="bg-blue-50 text-blue-600 py-3 rounded-xl font-bold text-sm"><i class="fa-solid fa-download mb-1 block text-lg"></i> 備份/匯出</button>
+                                <button onclick="document.getElementById('import-file').click()" class="bg-green-50 text-green-600 py-3 rounded-xl font-bold text-sm"><i class="fa-solid fa-upload mb-1 block text-lg"></i> 還原/匯入</button>
+                                <input type="file" id="import-file" class="hidden" accept=".json" onchange="App.importData(this)">
+                            </div>
+                        </div>
+                    </div>
+                `;
+                setTimeout(() => { const ctx = document.getElementById('expenseChart'); if(ctx) { new Chart(ctx, { type: 'doughnut', data: { labels: ['住宿', '飲食/雜支'], datasets: [{ data: [stayTotal, foodTotal], backgroundColor: ['#2C5E50', '#E76F51'], borderWidth: 0 }] }, options: { maintainAspectRatio: false, plugins: { legend: { position: 'right' } } } }); } }, 100);
+            },
+            
+            // Generate Image
+            createShareCard(km, day, pct) {
+                document.getElementById('cap-km').innerText = km;
+                document.getElementById('cap-day').innerText = day;
+                document.getElementById('cap-pct').innerText = pct + '%';
+                document.getElementById('cap-bar').style.width = pct + '%';
+                
+                const node = document.getElementById('capture-area');
+                node.style.opacity = '1'; // Make visible for capture
+                
+                html2canvas(node).then(canvas => {
+                    node.style.opacity = '0'; // Hide again
+                    
+                    // Create link to download
+                    const link = document.createElement('a');
+                    link.download = 'island-walker-share.png';
+                    link.href = canvas.toDataURL("image/png");
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+                    
+                    // Try Web Share API (Mobile)
+                    if (navigator.share) {
+                        canvas.toBlob(blob => {
+                            const file = new File([blob], "share.png", { type: "image/png" });
+                            navigator.share({
+                                files: [file],
+                                title: '徒步環島',
+                                text: '我的徒步環島紀錄！'
+                            }).catch(console.error);
+                        });
+                    } else {
+                        alert('圖片已下載，請到相簿查看！');
+                    }
+                });
+            },
+
+            editTarget() { const newT = prompt('設定目標公里數', this.data.targetKm); if(newT && !isNaN(newT)) { this.data.targetKm = Number(newT); this.saveData(); this.router('stats'); } },
+            exportData() { const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(this.data)); const downloadAnchorNode = document.createElement('a'); downloadAnchorNode.setAttribute("href", dataStr); const date = new Date().toISOString().split('T')[0]; downloadAnchorNode.setAttribute("download", "island_walker_backup_" + date + ".json"); document.body.appendChild(downloadAnchorNode); downloadAnchorNode.click(); downloadAnchorNode.remove(); },
+            importData(input) { const file = input.files[0]; if(!file) return; const reader = new FileReader(); reader.onload = function(e) { try { const imported = JSON.parse(e.target.result); if(confirm('確定要覆蓋目前的資料嗎？')) { App.data = imported; App.saveData(); alert('資料還原成功！'); location.reload(); } } catch(err) { alert('檔案格式錯誤'); } }; reader.readAsText(file); },
 
             renderLogView(container) {
                 const modeHtml = `<div class="flex justify-center mb-4 sticky top-0 z-20 bg-brand-bg py-2"><div class="bg-gray-200 p-1 rounded-xl flex text-xs font-bold shadow-inner"><button onclick="App.setLogMode('list')" class="px-6 py-2 rounded-lg transition-all ${this.logMode==='list'?'bg-white text-brand-dark shadow':'text-gray-500'}">列表</button><button onclick="App.setLogMode('calendar')" class="px-6 py-2 rounded-lg transition-all ${this.logMode==='calendar'?'bg-white text-brand-dark shadow':'text-gray-500'}">月曆</button></div></div>`;
+
                 if(this.logMode === 'list') {
                     let listHtml = '';
                     if (this.data.logs.length === 0) listHtml += `<div class="flex flex-col items-center justify-center h-[50vh] text-gray-300"><i class="fa-solid fa-book-open text-6xl mb-4"></i><p>開始紀錄你的第一天</p></div>`; 
@@ -326,7 +380,7 @@
                 const h = data.health || { duration: '', condition: 'avg', pain: '' };
                 if(h.sleep && !h.duration) h.duration = h.sleep;
 
-                const bodyHtml = `
+                const formHtml = `
                     <div class="space-y-4">
                         <input type="date" id="log-date" class="input-field font-num w-full" value="${dateValue}" onchange="App.checkRouteForDate(this.value)">
                         
@@ -376,7 +430,7 @@
                     kmEl.value = route.estKm;
                     [startEl, endEl, kmEl].forEach(el => { el.style.backgroundColor = '#E8F5E9'; setTimeout(() => el.style.backgroundColor = '#FAFAFA', 500); });
                 } else {
-                    // Feature 4: Auto-Clear if no route
+                    // Feature 4: Clear if no route found
                     startEl.value = '';
                     endEl.value = '';
                     kmEl.value = '';
@@ -392,14 +446,12 @@
                 window.tempMapCoords = null; this.saveData(); this.closeModal(); this.router('log');
             },
 
-            // --- Feature 2: Route View (Newest Top & Smart Start) ---
             renderRouteView(container) {
                 let html = `<a href="https://www.google.com/maps" target="_blank" class="flex items-center justify-center bg-white text-brand-dark py-3 rounded-xl mb-6 shadow-sm border border-gray-100 font-bold"><i class="fa-brands fa-google text-lg mr-2 text-red-500"></i> 開啟 Google Maps</a>`;
                 if (this.data.routes.length === 0) html += `<div class="text-center text-gray-400 mt-10">尚未規劃路線</div>`;
                 else {
                     html += '<div class="relative border-l-2 border-brand-earth/30 ml-4 pl-6 py-2 space-y-6">';
-                    // Sort: Newest First
-                    this.data.routes.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(route => {
+                    this.data.routes.sort((a,b) => new Date(a.date) - new Date(b.date)).forEach(route => {
                         const isToday = route.date === new Date().toISOString().split('T')[0];
                         let navLink = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(route.start)}&destination=${encodeURIComponent(route.end)}&travelmode=walking`;
                         if (route.coords && route.coords.waypoints && route.coords.waypoints.length > 0) { const waypoints = route.coords.waypoints.map(w => `${w.lat},${w.lng}`).join('|'); navLink = `https://www.google.com/maps/dir/?api=1&origin=${route.coords.start.lat},${route.coords.start.lng}&destination=${route.coords.end.lat},${route.coords.end.lng}&waypoints=${waypoints}&travelmode=walking`; } else if (route.coords && route.coords.start) { navLink = `https://www.google.com/maps/dir/?api=1&origin=${route.coords.start.lat},${route.coords.start.lng}&destination=${route.coords.end.lat},${route.coords.end.lng}&travelmode=walking`; }
@@ -413,36 +465,17 @@
                 container.innerHTML = html;
                 this.addFab(container, 'fa-map-pin', () => this.openRouteModal());
             },
-
-            // Feature 3: Smart Start (Auto fill next day's start point)
             openRouteModal(editId = null) {
-                const isEdit = editId !== null;
-                let data = {};
-                if(isEdit) data = this.data.routes.find(r => r.id === editId);
-                
-                if (!isEdit && this.data.routes.length > 0) {
-                    const sortedRoutes = [...this.data.routes].sort((a,b) => new Date(b.date) - new Date(a.date));
-                    const lastRoute = sortedRoutes[0];
-                    const lastDate = new Date(lastRoute.date);
-                    const nextDate = new Date(lastDate);
-                    nextDate.setDate(lastDate.getDate() + 1);
-                    data.date = nextDate.toISOString().split('T')[0];
-                    // Smart Start Logic
-                    const prevStay = this.data.stays.find(s => s.date === lastRoute.date);
-                    data.start = prevStay ? prevStay.name : lastRoute.end;
-                }
-
-                const bodyHtml = `<div class="space-y-4"><div class="flex gap-2"><input type="number" id="route-day" class="input-field w-1/3 font-num" placeholder="Day" value="${data.dayNum || ''}"><input type="date" id="route-date" class="input-field w-2/3 font-num" value="${data.date || ''}" onchange="App.autoCalcRouteDay(this.value)"></div><div class="grid grid-cols-2 gap-3"><input type="text" id="route-start" class="input-field" placeholder="起點" value="${data.start || ''}"><input type="text" id="route-end" class="input-field" placeholder="終點" value="${data.end || ''}"></div><div class="relative"><input type="number" id="route-km" class="input-field pr-24 font-num" placeholder="預估 km" value="${data.estKm || ''}"><button onclick="MapPicker.open('route-km')" class="absolute right-2 top-2 text-white bg-brand-dark text-xs px-3 py-2 rounded-lg font-bold shadow-sm flex items-center gap-1"><i class="fa-solid fa-map"></i> 測距</button></div><input type="text" id="route-note" class="input-field" placeholder="備註" value="${data.note || ''}"></div>`;
-                const footerHtml = `<button onclick="App.submitRoute(${editId})" class="w-full bg-brand-dark text-white py-3 rounded-xl font-bold shadow-lg mt-2">${isEdit ? '更新' : '新增'}</button>${isEdit ? `<button onclick="App.deleteRoute(${editId})" class="w-full text-red-400 text-sm py-2">刪除</button>` : ''}`;
-                this.showModal(isEdit ? '編輯規劃' : '新增規劃', bodyHtml, footerHtml);
-                
-                if (!isEdit && data.date) { App.autoCalcRouteDay(data.date); }
+                const isEdit = editId !== null; let data = {}; if(isEdit) data = this.data.routes.find(r => r.id === editId);
+                const formHtml = `<div class="space-y-4"><div class="flex gap-2"><input type="number" id="route-day" class="input-field w-1/3 font-num" placeholder="Day" value="${data.dayNum || ''}"><input type="date" id="route-date" class="input-field w-2/3 font-num" value="${data.date || ''}" onchange="App.autoCalcRouteDay(this.value)"></div><div class="grid grid-cols-2 gap-3"><input type="text" id="route-start" class="input-field" placeholder="起點" value="${data.start || ''}"><input type="text" id="route-end" class="input-field" placeholder="終點" value="${data.end || ''}"></div><div class="relative"><input type="number" id="route-km" class="input-field pr-24 font-num" placeholder="預估 km" value="${data.estKm || ''}"><button onclick="MapPicker.open('route-km')" class="absolute right-2 top-2 text-white bg-brand-dark text-xs px-3 py-2 rounded-lg font-bold shadow-sm flex items-center gap-1"><i class="fa-solid fa-map"></i> 測距</button></div><input type="text" id="route-note" class="input-field" placeholder="備註" value="${data.note || ''}"><button onclick="App.submitRoute(${editId})" class="w-full bg-brand-dark text-white py-3 rounded-xl font-bold shadow-lg mt-2">${isEdit ? '更新' : '新增'}</button>${isEdit ? `<button onclick="App.deleteRoute(${editId})" class="w-full text-red-400 text-sm mt-3">刪除</button>` : ''}</div>`;
+                this.showModal(isEdit ? '編輯規劃' : '新增規劃', formHtml);
+                if (!isEdit && !data.dayNum) { const today = new Date().toISOString().split('T')[0]; App.autoCalcRouteDay(today); }
             },
             autoCalcRouteDay(dateStr) { const diff = this.getDayNumber(dateStr); document.getElementById('route-day').value = diff; },
             submitRoute(editId) { const newRoute={id:editId||Date.now(),dayNum:document.getElementById('route-day').value,date:document.getElementById('route-date').value,start:document.getElementById('route-start').value,end:document.getElementById('route-end').value,estKm:document.getElementById('route-km').value,note:document.getElementById('route-note').value,coords:window.tempMapCoords||(editId?this.data.routes.find(r=>r.id===editId).coords:null)}; if(editId){const idx=this.data.routes.findIndex(r=>r.id===editId);this.data.routes[idx]=newRoute;}else{this.data.routes.push(newRoute);}window.tempMapCoords=null;this.saveData();this.closeModal();this.router('route'); },
             deleteRoute(id) { if(confirm('刪除?')) { this.data.routes = this.data.routes.filter(r => r.id !== id); this.saveData(); this.closeModal(); this.router('route'); }},
             renderStayView(container) { let html = ''; if (this.data.stays.length === 0) html += `<div class="text-center text-gray-400 mt-20">尚未紀錄住宿</div>`; else { this.data.stays.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(stay => { const dayNum = this.getDayNumber(stay.date); const headerHtml = Utils.renderCardHeader(dayNum, stay.date, `<button onclick="App.openStayModal(${stay.id})" class="text-gray-300 px-2"><i class="fa-solid fa-pen"></i></button>`); html += `<div class="card p-5 mb-4">${headerHtml}<div class="flex justify-between items-center mt-2"><h3 class="text-xl font-bold text-brand-dark">${stay.name}</h3><span class="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600">${stay.type}</span></div><div class="text-brand-accent font-bold my-2 font-num text-lg">$${stay.price}</div>${stay.contact ? `<div class="text-sm text-gray-600 mb-1"><i class="fa-solid fa-phone w-5"></i> <a href="tel:${stay.contact}" class="underline">${stay.contact}</a></div>` : ''}${stay.note ? `<div class="text-xs text-gray-500 bg-brand-light p-2 rounded mt-2">${stay.note}</div>` : ''}${stay.mapLink ? `<a href="${stay.mapLink}" target="_blank" class="mt-2 block text-center bg-blue-50 py-2 rounded-lg text-sm font-bold text-blue-600 hover:bg-blue-100"><i class="fa-solid fa-map-location-dot"></i> 開啟地圖</a>` : ''}</div>`; }); } container.innerHTML = html; this.addFab(container, 'fa-bed', () => this.openStayModal()); },
-            openStayModal(editId = null) { const isEdit = editId !== null; let data = {}; if(isEdit) data = this.data.stays.find(s => s.id === editId); const bodyHtml = `<div class="space-y-4"><input type="date" id="stay-date" class="input-field font-num" value="${data.date || ''}"><input type="text" id="stay-name" class="input-field" placeholder="住宿名稱" value="${data.name || ''}"><div class="grid grid-cols-2 gap-3"><select id="stay-type" class="input-field">${['民宿','青旅','旅館','借宿','野宿'].map(t => `<option value="${t}" ${data.type===t?'selected':''}>${t}</option>`).join('')}</select><input type="number" id="stay-price" class="input-field font-num" placeholder="價格" inputmode="numeric" value="${data.price || ''}"></div><input type="tel" id="stay-contact" class="input-field font-num" placeholder="電話" value="${data.contact || ''}"><div class="text-[10px] text-gray-500 bg-gray-50 p-2 rounded">備註：請手動貼上 Google Maps 分享連結 (無法自動帶入資料)。</div><input type="text" id="stay-map" class="input-field" placeholder="Google Map 分享連結" value="${data.mapLink || ''}"><input type="text" id="stay-note" class="input-field" placeholder="備註 (插座、洗衣機...)" value="${data.note || ''}"></div>`; const footerHtml = `<button onclick="App.submitStay(${editId})" class="w-full bg-brand-dark text-white py-3 rounded-xl font-bold shadow-lg mt-2">${isEdit ? '更新' : '儲存'}</button>${isEdit ? `<button onclick="App.deleteStay(${editId})" class="w-full text-red-400 text-sm mt-3">刪除</button>` : ''}`; this.showModal(isEdit?'編輯住宿':'新增住宿', bodyHtml, footerHtml); },
+            openStayModal(editId = null) { const isEdit = editId !== null; let data = {}; if(isEdit) data = this.data.stays.find(s => s.id === editId); const formHtml = `<div class="space-y-4"><input type="date" id="stay-date" class="input-field font-num" value="${data.date || ''}"><input type="text" id="stay-name" class="input-field" placeholder="住宿名稱" value="${data.name || ''}"><div class="grid grid-cols-2 gap-3"><select id="stay-type" class="input-field">${['民宿','青旅','旅館','借宿','野宿'].map(t => `<option value="${t}" ${data.type===t?'selected':''}>${t}</option>`).join('')}</select><input type="number" id="stay-price" class="input-field font-num" placeholder="價格" inputmode="numeric" value="${data.price || ''}"></div><input type="tel" id="stay-contact" class="input-field font-num" placeholder="電話" value="${data.contact || ''}"><div class="text-[10px] text-gray-500 bg-gray-50 p-2 rounded">備註：請手動貼上 Google Maps 分享連結 (無法自動帶入資料)。</div><input type="text" id="stay-map" class="input-field" placeholder="Google Map 分享連結" value="${data.mapLink || ''}"><input type="text" id="stay-note" class="input-field" placeholder="備註 (插座、洗衣機...)" value="${data.note || ''}"><button onclick="App.submitStay(${editId})" class="w-full bg-brand-dark text-white py-3 rounded-xl font-bold shadow-lg mt-2">${isEdit ? '更新' : '儲存'}</button>${isEdit ? `<button onclick="App.deleteStay(${editId})" class="w-full text-red-400 text-sm mt-3">刪除</button>` : ''}</div>`; this.showModal(isEdit?'編輯住宿':'新增住宿', formHtml); },
             submitStay(editId) { const newStay = { id: editId || Date.now(), date: document.getElementById('stay-date').value, name: document.getElementById('stay-name').value, type: document.getElementById('stay-type').value, price: document.getElementById('stay-price').value, contact: document.getElementById('stay-contact').value, mapLink: document.getElementById('stay-map').value, note: document.getElementById('stay-note').value }; if(editId) { const idx = this.data.stays.findIndex(s => s.id === editId); this.data.stays[idx] = newStay; } else { this.data.stays.push(newStay); } this.saveData(); this.closeModal(); this.router('stay'); },
             deleteStay(id) { if(confirm('刪除?')) { this.data.stays = this.data.stays.filter(s => s.id !== id); this.saveData(); this.closeModal(); this.router('stay'); }},
             renderGearView(container) { container.innerHTML = `<div class="grid grid-cols-5 gap-2 mb-4 sticky top-0 bg-brand-bg z-10 py-2 px-1"><button onclick="App.filterGear('all')" class="py-2 bg-white rounded-lg shadow-sm text-[10px] font-bold border border-gray-100">全部</button><button onclick="App.filterGear('clothing')" class="py-2 bg-white rounded-lg shadow-sm text-[10px] font-bold border border-gray-100">衣物</button><button onclick="App.filterGear('rain')" class="py-2 bg-white rounded-lg shadow-sm text-[10px] font-bold border border-gray-100">雨具</button><button onclick="App.filterGear('sleep')" class="py-2 bg-white rounded-lg shadow-sm text-[10px] font-bold border border-gray-100">睡眠</button><button onclick="App.filterGear('elec')" class="py-2 bg-white rounded-lg shadow-sm text-[10px] font-bold border border-gray-100">電子</button><button onclick="App.filterGear('clean')" class="py-2 bg-white rounded-lg shadow-sm text-[10px] font-bold border border-gray-100">清潔</button><button onclick="App.filterGear('med')" class="py-2 bg-white rounded-lg shadow-sm text-[10px] font-bold border border-gray-100">醫藥</button><button onclick="App.filterGear('id')" class="py-2 bg-white rounded-lg shadow-sm text-[10px] font-bold border border-gray-100">隨身</button><button onclick="App.filterGear('food')" class="py-2 bg-white rounded-lg shadow-sm text-[10px] font-bold border border-gray-100">食水</button><button onclick="App.filterGear('other')" class="py-2 bg-white rounded-lg shadow-sm text-[10px] font-bold border border-gray-100">其他</button></div><div class="flex justify-between items-center mb-2 px-1"><h3 class="font-bold text-brand-dark">裝備清單</h3><button onclick="App.openGearAdd()" class="text-sm text-brand-accent font-bold"><i class="fa-solid fa-plus"></i> 新增</button></div><div id="gear-list" class="space-y-2 pb-20"></div>`; this.filterGear('all'); },
@@ -450,17 +483,21 @@
             toggleGear(id) { const g = this.data.gears.find(i=>i.id===id); if(g) { g.checked = !g.checked; this.saveData(); this.filterGear('all'); } },
             openGearAdd() { this.openGearModal(null); },
             openGearEdit(id) { this.openGearModal(id); },
-            openGearModal(id) { const isEdit = id !== null; let data = { name: '', cat: 'clothing' }; if (isEdit) data = this.data.gears.find(g => g.id === id); const bodyHtml = `<div class="space-y-4"><input type="text" id="gear-name" class="input-field" placeholder="裝備名稱" value="${data.name}"><select id="gear-cat" class="input-field"><option value="clothing" ${data.cat==='clothing'?'selected':''}>衣物</option><option value="rain" ${data.cat==='rain'?'selected':''}>雨具</option><option value="sleep" ${data.cat==='sleep'?'selected':''}>帳篷/睡眠</option><option value="elec" ${data.cat==='elec'?'selected':''}>電子</option><option value="clean" ${data.cat==='clean'?'selected':''}>清潔</option><option value="med" ${data.cat==='med'?'selected':''}>醫藥</option><option value="id" ${data.cat==='id'?'selected':''}>隨身</option><option value="food" ${data.cat==='food'?'selected':''}>食水</option><option value="other" ${data.cat==='other'?'selected':''}>其他</option></select></div>`; const footerHtml = `<button onclick="App.submitGear(${id})" class="w-full bg-brand-dark text-white py-3 rounded-xl font-bold">${isEdit?'更新':'新增'}</button>`; this.showModal(isEdit ? '編輯裝備' : '新增裝備', bodyHtml, footerHtml); },
+            openGearModal(id) { const isEdit = id !== null; let data = { name: '', cat: 'clothing' }; if (isEdit) data = this.data.gears.find(g => g.id === id); const formHtml = `<div class="space-y-4"><input type="text" id="gear-name" class="input-field" placeholder="裝備名稱" value="${data.name}"><select id="gear-cat" class="input-field"><option value="clothing" ${data.cat==='clothing'?'selected':''}>衣物</option><option value="rain" ${data.cat==='rain'?'selected':''}>雨具</option><option value="sleep" ${data.cat==='sleep'?'selected':''}>帳篷/睡眠</option><option value="elec" ${data.cat==='elec'?'selected':''}>電子</option><option value="clean" ${data.cat==='clean'?'selected':''}>清潔</option><option value="med" ${data.cat==='med'?'selected':''}>醫藥</option><option value="id" ${data.cat==='id'?'selected':''}>隨身</option><option value="food" ${data.cat==='food'?'selected':''}>食水</option><option value="other" ${data.cat==='other'?'selected':''}>其他</option></select><button onclick="App.submitGear(${id})" class="w-full bg-brand-dark text-white py-3 rounded-xl font-bold">${isEdit?'更新':'新增'}</button></div>`; this.showModal(isEdit ? '編輯裝備' : '新增裝備', formHtml); },
             submitGear(id) { const name = document.getElementById('gear-name').value; const cat = document.getElementById('gear-cat').value; if(id) { const g = this.data.gears.find(i => i.id === id); if(g) { g.name = name; g.cat = cat; } } else { this.data.gears.push({ id: Date.now(), name: name, cat: cat, checked: false }); } this.saveData(); this.closeModal(); this.router('gear'); },
             deleteGear(id) { if(confirm('刪除?')) { this.data.gears = this.data.gears.filter(g=>g.id!==id); this.saveData(); this.router('gear'); }},
-            seedGearData() { 
-                this.data.gears = [
-                    {id:1,cat:'clothing',name:'登山鞋/健行鞋',checked:false}, {id:2,cat:'clothing',name:'運動鞋（備用）',checked:true}, {id:3,cat:'clothing',name:'拖鞋',checked:true}, {id:4,cat:'clothing',name:'排汗衣 x2',checked:false}, {id:5,cat:'clothing',name:'發熱衣 x2',checked:true}, {id:6,cat:'clothing',name:'長袖排汗衣 x2',checked:true}, {id:7,cat:'clothing',name:'長褲排汗褲 x2',checked:true}, {id:8,cat:'clothing',name:'長運動束褲 x2',checked:true}, {id:9,cat:'clothing',name:'短褲(睡褲)',checked:true}, {id:10,cat:'clothing',name:'內衣褲 x2',checked:false}, {id:11,cat:'clothing',name:'五指襪 x3',checked:true}, {id:12,cat:'clothing',name:'厚長襪 x1',checked:true}, {id:13,cat:'clothing',name:'羽絨外套',checked:false}, {id:14,cat:'clothing',name:'防風外套',checked:true}, {id:15,cat:'clothing',name:'漁夫帽/頭巾',checked:true}, {id:16,cat:'clothing',name:'毛線帽',checked:false}, {id:17,cat:'clothing',name:'圍巾',checked:true}, {id:18,cat:'clothing',name:'袖套',checked:false}, {id:19,cat:'clothing',name:'太陽眼鏡',checked:false},
-                    {id:20,cat:'rain',name:'輕便/兩截式雨衣',checked:true}, {id:21,cat:'rain',name:'摺疊雨傘',checked:true}, {id:22,cat:'rain',name:'背包防水套',checked:true}, {id:23,cat:'rain',name:'防水袋',checked:false}, {id:24,cat:'rain',name:'鞋套',checked:false},
-                    {id:25,cat:'sleep',name:'帳篷',checked:false}, {id:26,cat:'sleep',name:'睡袋',checked:false}, {id:27,cat:'sleep',name:'睡墊',checked:false}, {id:28,cat:'sleep',name:'枕頭',checked:false},
-                    {id:30,cat:'elec',name:'手機',checked:true}, {id:31,cat:'elec',name:'延長線',checked:false}, {id:32,cat:'elec',name:'行動電源 x2',checked:true}, {id:33,cat:'elec',name:'充電器/插座',checked:false}, {id:34,cat:'elec',name:'頭燈/手電筒',checked:true}, {id:35,cat:'elec',name:'手錶(GPS)',checked:true}, {id:36,cat:'elec',name:'耳機',checked:true}, {id:37,cat:'elec',name:'相機',checked:false}, {id:38,cat:'elec',name:'警示燈',checked:true},
-                    {id:40,cat:'clean',name:'牙刷牙膏',checked:true}, {id:41,cat:'clean',name:'快乾毛巾',checked:true}, {id:42,cat:'clean',name:'肥皂/沐浴乳',checked:true}, {id:43,cat:'clean',name:'洗面乳',checked:false}, {id:44,cat:'clean',name:'衛生紙',checked:true}, {id:45,cat:'clean',name:'濕紙巾',checked:false}, {id:46,cat:'clean',name:'防曬乳',checked:false}, {id:47,cat:'clean',name:'髒衣袋',checked:false}, {id:48,cat:'clean',name:'刮鬍刀',checked:true}, {id:49,cat:'clean',name:'指甲剪',checked:true},
-                    {id:50,cat:'med',name:'個人藥品',checked:false}, {id:51,cat:'med',name:'酒精/乾洗手',checked:false}, {id:52,cat:'med',name:'止痛藥',checked:true}, {id:53,cat:'med',name:'腸胃藥',checked:false}, {id:54,cat:'med',name:'感冒藥',checked:false}, {id:55,cat:'med',name:'小護士藥膏',checked:false}, {id:56,cat:'med',name:'凡士林',checked:true}, {id:57,cat:'med',name:'痠痛貼布',checked:false}, {id:58,cat:'med',name:'OK繃/水泡貼',checked:true}, {id:59,cat:'med',name:'彈性繃帶',checked:false}, {id:60,cat:'med',name:'護膝',checked:false}, {id:61,cat:'med',name:'針線',checked:true},
-                    {id:70,cat:'id',name:'身分證',checked:true}, {id:71,cat:'id',name:'健保卡',checked:true}, {id:72,cat:'id',name:'現金/信用卡',checked:true}, {id:73,cat:'id',name:'悠遊卡',checked:false}, {id:74,cat:'id',name:'保險單影本',checked:false}, {id:75,cat:'id',name:'緊急聯絡資訊',checked:false}, {id:76,cat:'id',name:'筆記本/筆',checked:false},
-                    {id:80,cat:'food',name:'保溫瓶/水袋',checked:true}, {id:81,cat:'food',name:'能量棒',checked:false}, {id:82,cat:'food',name:'鹽糖',checked:false}, {id:83,cat:'food',name:'泡麵/即食',checked:false}, {id:84,cat:'food',name:'水果',checked:false},
-                    {id:90,cat:'other',name:'登山背包(40L)',checked:true}, {id:91,cat:'other',name:'曬衣夾',checked:true}, {id:92,cat:'other',name:'洗衣袋',checked:true}, {id:93,cat:'other',name:'腰包',checked:false}, {id:94,cat:'other',name:'登山杖',checked:true}, {id:95,cat:'other',name:'塑膠袋/垃圾袋',checked:false}, {id:96,cat:'other',name:'環保餐具',checked:true}, {id:97,cat:'other',name:'瑞士刀',checked:false}, {id:98,cat:'other',name:'打火機',checked:false}, {id:99,cat:'other',name:'防蚊液',checked:false}, {id:100,cat:'other',name:'口罩',checked:false}, {id:101,cat:'other'
+            seedGearData() { this.data.gears = [{id:1,cat:'clothing',name:'登山鞋/健行鞋',checked:false}, {id:2,cat:'clothing',name:'運動鞋（備用）',checked:true}, {id:3,cat:'clothing',name:'拖鞋',checked:true}, {id:4,cat:'clothing',name:'排汗衣 x2',checked:false}, {id:5,cat:'clothing',name:'發熱衣 x2',checked:true}, {id:6,cat:'clothing',name:'長袖排汗衣 x2',checked:true}, {id:7,cat:'clothing',name:'長褲排汗褲 x2',checked:true}, {id:8,cat:'clothing',name:'長運動束褲 x2',checked:true}, {id:9,cat:'clothing',name:'短褲(睡褲)',checked:true}, {id:10,cat:'clothing',name:'內衣褲 x2',checked:false}, {id:11,cat:'clothing',name:'五指襪 x3',checked:true}, {id:12,cat:'clothing',name:'厚長襪 x1',checked:true}, {id:13,cat:'clothing',name:'羽絨外套',checked:false}, {id:14,cat:'clothing',name:'防風外套',checked:true}, {id:15,cat:'clothing',name:'漁夫帽/頭巾',checked:true}, {id:16,cat:'clothing',name:'毛線帽',checked:false}, {id:17,cat:'clothing',name:'圍巾',checked:true}, {id:18,cat:'clothing',name:'袖套',checked:false}, {id:19,cat:'clothing',name:'太陽眼鏡',checked:false}, {id:20,cat:'rain',name:'輕便/兩截式雨衣',checked:true}, {id:21,cat:'rain',name:'摺疊雨傘',checked:true}, {id:22,cat:'rain',name:'背包防水套',checked:true}, {id:23,cat:'rain',name:'防水袋',checked:false}, {id:24,cat:'rain',name:'鞋套',checked:false}, {id:25,cat:'sleep',name:'帳篷',checked:false}, {id:26,cat:'sleep',name:'睡袋',checked:false}, {id:27,cat:'sleep',name:'睡墊',checked:false}, {id:28,cat:'sleep',name:'枕頭',checked:false}, {id:30,cat:'elec',name:'手機',checked:true}, {id:31,cat:'elec',name:'延長線',checked:false}, {id:32,cat:'elec',name:'行動電源 x2',checked:true}, {id:33,cat:'elec',name:'充電器/插座',checked:false}, {id:34,cat:'elec',name:'頭燈/手電筒',checked:true}, {id:35,cat:'elec',name:'手錶(GPS)',checked:true}, {id:36,cat:'elec',name:'耳機',checked:true}, {id:37,cat:'elec',name:'相機',checked:false}, {id:38,cat:'elec',name:'警示燈',checked:true}, {id:40,cat:'clean',name:'牙刷牙膏',checked:true}, {id:41,cat:'clean',name:'快乾毛巾',checked:true}, {id:42,cat:'clean',name:'肥皂/沐浴乳',checked:true}, {id:43,cat:'clean',name:'洗面乳',checked:false}, {id:44,cat:'clean',name:'衛生紙',checked:true}, {id:45,cat:'clean',name:'濕紙巾',checked:false}, {id:46,cat:'clean',name:'防曬乳',checked:false}, {id:47,cat:'clean',name:'髒衣袋',checked:false}, {id:48,cat:'clean',name:'刮鬍刀',checked:true}, {id:49,cat:'clean',name:'指甲剪',checked:true}, {id:50,cat:'med',name:'個人藥品',checked:false}, {id:51,cat:'med',name:'酒精/乾洗手',checked:false}, {id:52,cat:'med',name:'止痛藥',checked:true}, {id:53,cat:'med',name:'腸胃藥',checked:false}, {id:54,cat:'med',name:'感冒藥',checked:false}, {id:55,cat:'med',name:'小護士藥膏',checked:false}, {id:56,cat:'med',name:'凡士林',checked:true}, {id:57,cat:'med',name:'痠痛貼布',checked:false}, {id:58,cat:'med',name:'OK繃/水泡貼',checked:true}, {id:59,cat:'med',name:'彈性繃帶',checked:false}, {id:60,cat:'med',name:'護膝',checked:false}, {id:61,cat:'med',name:'針線',checked:true}, {id:70,cat:'id',name:'身分證',checked:true}, {id:71,cat:'id',name:'健保卡',checked:true}, {id:72,cat:'id',name:'現金/信用卡',checked:true}, {id:73,cat:'id',name:'悠遊卡',checked:false}, {id:74,cat:'id',name:'保險單影本',checked:false}, {id:75,cat:'id',name:'緊急聯絡資訊',checked:false}, {id:76,cat:'id',name:'筆記本/筆',checked:false}, {id:80,cat:'food',name:'保溫瓶/水袋',checked:true}, {id:81,cat:'food',name:'能量棒',checked:false}, {id:82,cat:'food',name:'鹽糖',checked:false}, {id:83,cat:'food',name:'泡麵/即食',checked:false}, {id:84,cat:'food',name:'水果',checked:false}, {id:90,cat:'other',name:'登山背包(40L)',checked:true}, {id:91,cat:'other',name:'曬衣夾',checked:true}, {id:92,cat:'other',name:'洗衣袋',checked:true}, {id:93,cat:'other',name:'腰包',checked:false}, {id:94,cat:'other',name:'登山杖',checked:true}, {id:95,cat:'other',name:'塑膠袋/垃圾袋',checked:false}, {id:96,cat:'other',name:'環保餐具',checked:true}, {id:97,cat:'other',name:'瑞士刀',checked:false}, {id:98,cat:'other',name:'打火機',checked:false}, {id:99,cat:'other',name:'防蚊液',checked:false}, {id:100,cat:'other',name:'口罩',checked:false}, {id:101,cat:'other',name:'哨子',checked:false}, {id:102,cat:'other',name:'地圖',checked:false}, {id:103,cat:'other',name:'束線帶',checked:false}]; this.saveData(); },
+            getStayCostByDate(date) { const stay = this.data.stays.find(s => s.date === date); return stay ? Number(stay.price || 0) : 0; },
+            addFab(c,i,cb) { const b=document.createElement('div'); b.className='fab'; b.innerHTML=`<i class="fa-solid ${i}"></i>`; b.onclick=cb; c.appendChild(b); },
+            showModal(t,h) { document.getElementById('modal-title').innerText=t; document.getElementById('modal-content').innerHTML=h; document.getElementById('modal').classList.remove('hidden'); },
+            closeModal() { document.getElementById('modal').classList.add('hidden'); },
+            closeMapModal() { document.getElementById('map-modal').classList.add('hidden'); },
+            closeImportModal() { document.getElementById('import-modal').classList.add('hidden'); },
+            addExpenseRow(name = '', price = '') { const div = document.createElement('div'); div.className = 'flex gap-2 expense-row'; div.innerHTML = `<input type="text" class="input-field py-1 text-sm flex-[2] ex-name" placeholder="項目" value="${name}"><input type="number" class="input-field py-1 text-sm flex-1 ex-price" placeholder="$" value="${price}"><button onclick="this.parentElement.remove()" class="text-gray-400 px-1"><i class="fa-solid fa-xmark"></i></button>`; document.getElementById('expense-container').appendChild(div); },
+            deleteLog(id) { if(confirm('刪除?')) { this.data.logs = this.data.logs.filter(l => l.id !== id); this.saveData(); this.closeModal(); this.router('log'); }}
+        };
+
+        document.addEventListener('DOMContentLoaded', () => { App.init(); });
+    </script>
+</body>
+</html>
